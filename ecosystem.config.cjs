@@ -3,11 +3,11 @@ module.exports = {
     {
       name: 'auto-video-web',
       script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3001',
+      args: 'start -p 3008',
       cwd: '/var/www/Auto-Video',
       env: {
         NODE_ENV: 'production',
-        PORT: 3001,
+        PORT: 3008,
       },
       instances: 1,
       autorestart: true,

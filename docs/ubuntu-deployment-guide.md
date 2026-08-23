@@ -80,7 +80,7 @@ nano .env
 
 Dán nội dung sau vào file `.env`:
 ```env
-PORT=3001
+PORT=3008
 NODE_ENV=production
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
@@ -100,7 +100,7 @@ GEMINI_API_KEY=your_actual_gemini_api_key_here
 npm run build
 ```
 
-### Bước 4.2: Khởi chạy ứng dụng cổng 3001 qua PM2
+### Bước 4.2: Khởi chạy ứng dụng cổng 3008 qua PM2
 ```bash
 pm2 start ecosystem.config.cjs
 
@@ -113,7 +113,7 @@ pm2 startup
 
 ## 🌐 5. Cấu Hình NGINX Reverse Proxy & HTTPS (Certbot SSL)
 
-### Bước 5.1: Cấu hình Virtual Host NGINX (Chuyển tiếp tới Cổng 3001)
+### Bước 5.1: Cấu hình Virtual Host NGINX (Chuyển tiếp tới Cổng 3008)
 Tạo file cấu hình mới:
 ```bash
 sudo nano /etc/nginx/sites-available/auto-video
@@ -128,7 +128,7 @@ server {
     client_max_body_size 100M;
 
     location / {
-        proxy_pass http://127.0.0.1:3001;
+        proxy_pass http://127.0.0.1:3008;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
