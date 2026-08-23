@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { scrapeMakerWorldKeyword } from '../../../lib/crawler/makerworld';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();

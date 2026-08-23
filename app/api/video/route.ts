@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import { buildVideoPrompt } from '../../../lib/video-gen/prompt';
 import { generateVeoVideo } from '../../../lib/video-gen/veo';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();

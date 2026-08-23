@@ -80,7 +80,7 @@ nano .env
 
 Dán nội dung sau vào file `.env`:
 ```env
-PORT=3000
+PORT=3001
 NODE_ENV=production
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
@@ -100,46 +100,7 @@ GEMINI_API_KEY=your_actual_gemini_api_key_here
 npm run build
 ```
 
-### Bước 4.2: Tạo cấu hình quản lý PM2 (`ecosystem.config.cjs`)
-Tạo file `ecosystem.config.cjs`:
-```bash
-nano ecosystem.config.cjs
-```
-
-Dán nội dung sau:
-```javascript
-module.exports = {
-  apps: [
-    {
-      name: 'auto-video-web',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
-      cwd: '/var/www/Auto-Video',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3000,
-      },
-      instances: 1,
-      autorestart: true,
-      watch: false,
-    },
-    {
-      name: 'auto-video-worker',
-      script: 'npx',
-      args: 'tsx lib/worker/index.ts',
-      cwd: '/var/www/Auto-Video',
-      env: {
-        NODE_ENV: 'production',
-      },
-      instances: 1,
-      autorestart: true,
-      watch: false,
-    },
-  ],
-};
-```
-
-### Bước 4.3: Khởi chạy ứng dụng qua PM2
+### Bước 4.2: Khởi chạy ứng dụng cổng 3001 qua PM2
 ```bash
 pm2 start ecosystem.config.cjs
 
@@ -148,18 +109,11 @@ pm2 save
 pm2 startup
 ```
 
-*(Hãy copy và chạy lệnh `sudo env PATH=...` do PM2 gợi ý ở bước startup)*
-
 ---
 
 ## 🌐 5. Cấu Hình NGINX Reverse Proxy & HTTPS (Certbot SSL)
 
-### Bước 5.1: Cài đặt NGINX
-```bash
-sudo apt install -y nginx
-```
-
-### Bước 5.2: Cấu hình Virtual Host NGINX
+### Bước 5.1: Cấu hình Virtual Host NGINX (Chuyển tiếp tới Cổng 3001)
 Tạo file cấu hình mới:
 ```bash
 sudo nano /etc/nginx/sites-available/auto-video
@@ -174,7 +128,7 @@ server {
     client_max_body_size 100M;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -194,25 +148,9 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Bước 5.3: Cài đặt SSL miễn phí với Let's Encrypt Certbot
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com
-```
-
 ---
 
-## 🔒 6. Cấu Hình Tường Lửa (UFW Firewall)
-
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
-sudo ufw enable
-```
-
----
-
-## 📊 7. Theo Dõi & Lệnh Quản Lý Nhanh
+## 📊 6. Theo Dõi & Lệnh Quản Lý Nhanh
 
 - **Xem danh sách tiến trình PM2**:
   ```bash
@@ -221,7 +159,7 @@ sudo ufw enable
 
 - **Xem log realtime của Web & Worker**:
   ```bash
-  pm2 logs
+  pm2 logs auto-video-web
   pm2 logs auto-video-worker
   ```
 
