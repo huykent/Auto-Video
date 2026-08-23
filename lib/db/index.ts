@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/libsql';
+import { createClient } from '@libsql/client';
 import * as schema from './schema';
 import path from 'path';
 import fs from 'fs';
@@ -10,10 +10,12 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const sqlite = new Database(dbPath);
+const client = createClient({
+  url: `file:${dbPath.replace(/\\/g, '/')}`,
+});
 
-// Execute table migrations if not exist
-sqlite.exec(`
+// Initialize SQLite tables
+await client.execute(`
   CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
     makerworld_id TEXT UNIQUE NOT NULL,
@@ -35,7 +37,9 @@ sqlite.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+`);
 
+await client.execute(`
   CREATE TABLE IF NOT EXISTS search_jobs (
     id TEXT PRIMARY KEY,
     keyword TEXT NOT NULL,
@@ -46,4 +50,4 @@ sqlite.exec(`
   );
 `);
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(client, { schema });
