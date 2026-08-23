@@ -12,8 +12,8 @@ module.exports = {
     },
     {
       name: 'auto-video-worker',
-      script: 'npx',
-      args: 'tsx lib/worker/index.ts',
+      script: './node_modules/.bin/tsx',
+      args: 'lib/worker/index.ts',
       cwd: '/var/www/Auto-Video',
       env: {
         NODE_ENV: 'production',
