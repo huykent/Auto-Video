@@ -7,6 +7,8 @@ export interface SystemSettingsPayload {
   gemini_api_key?: string;
   ai_mode?: 'mock' | 'live';
   max_crawl_items?: string;
+  makerworld_token?: string;
+  makerworld_cookie?: string;
 }
 
 export async function getSystemSettings(): Promise<Record<string, string>> {
@@ -16,6 +18,8 @@ export async function getSystemSettings(): Promise<Record<string, string>> {
     gemini_api_key: '',
     ai_mode: 'mock',
     max_crawl_items: '10',
+    makerworld_token: '',
+    makerworld_cookie: '',
   };
   for (const row of rows) {
     result[row.key] = row.value;

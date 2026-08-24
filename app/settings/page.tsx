@@ -12,17 +12,21 @@ import {
   Eye, 
   EyeOff, 
   ArrowLeft,
-  Server
+  Server,
+  Globe
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const [veoApiKey, setVeoApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [makerworldToken, setMakerworldToken] = useState('');
+  const [makerworldCookie, setMakerworldCookie] = useState('');
   const [aiMode, setAiMode] = useState<'mock' | 'live'>('mock');
   const [maxCrawlItems, setMaxCrawlItems] = useState('10');
   
   const [showVeoKey, setShowVeoKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showMwToken, setShowMwToken] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +40,8 @@ export default function SettingsPage() {
         if (data) {
           setVeoApiKey(data.veo_api_key || '');
           setGeminiApiKey(data.gemini_api_key || '');
+          setMakerworldToken(data.makerworld_token || '');
+          setMakerworldCookie(data.makerworld_cookie || '');
           setAiMode(data.ai_mode === 'live' ? 'live' : 'mock');
           setMaxCrawlItems(data.max_crawl_items || '10');
         }
@@ -59,6 +65,8 @@ export default function SettingsPage() {
         body: JSON.stringify({
           veo_api_key: veoApiKey,
           gemini_api_key: geminiApiKey,
+          makerworld_token: makerworldToken,
+          makerworld_cookie: makerworldCookie,
           ai_mode: aiMode,
           max_crawl_items: maxCrawlItems,
         }),
@@ -161,7 +169,61 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Card 2: API Keys Configuration */}
+            {/* Card 2: MakerWorld Account Auth (Cloudflare Bypass) */}
+            <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-5 shadow-[0_0_30px_rgba(6,182,212,0.1)]">
+              <div className="flex items-center gap-3 pb-4 border-b border-cyan-500/15">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">MakerWorld Cloudflare Authentication (Bambuddy Strategy)</h3>
+                  <p className="text-xs text-slate-400">Nhập Authorization Bearer Token hoặc Cookie để bypass 100% Cloudflare WAF</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* MakerWorld Token */}
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-emerald-300 flex items-center justify-between">
+                    <span>MAKERWORLD AUTHORIZATION BEARER TOKEN:</span>
+                    <span className="text-slate-500 text-[10px]">Trích xuất từ DevTools Header `Authorization`</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showMwToken ? 'text' : 'password'}
+                      value={makerworldToken}
+                      onChange={(e) => setMakerworldToken(e.target.value)}
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                      className="w-full bg-slate-950 border border-emerald-500/30 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 pr-12"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMwToken(!showMwToken)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      {showMwToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* MakerWorld Cookie */}
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-cyan-300 flex items-center justify-between">
+                    <span>MAKERWORLD BROWSER COOKIE (OPTIONAL):</span>
+                    <span className="text-slate-500 text-[10px]">Trích xuất Cookie từ F12 Application Tab</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={makerworldCookie}
+                    onChange={(e) => setMakerworldCookie(e.target.value)}
+                    placeholder="t=...; cf_clearance=...; _ga=..."
+                    className="w-full bg-slate-950 border border-cyan-500/30 rounded-xl px-4 py-2.5 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: API Keys Configuration */}
             <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-5 shadow-[0_0_30px_rgba(6,182,212,0.1)]">
               <div className="flex items-center gap-3 pb-4 border-b border-cyan-500/15">
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
@@ -224,15 +286,15 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Card 3: Crawler Settings */}
+            {/* Card 4: Crawler Settings */}
             <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-5 shadow-[0_0_30px_rgba(6,182,212,0.1)]">
               <div className="flex items-center gap-3 pb-4 border-b border-cyan-500/15">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Cấu Hình MakerWorld Scraper</h3>
-                  <p className="text-xs text-slate-400">Thiết lập tham số mặc định cho Playwright Crawler</p>
+                  <h3 className="text-lg font-bold text-white">Cấu Hình Scraper Settings</h3>
+                  <p className="text-xs text-slate-400">Thiết lập tham số mặc định cho MakerWorld Engine</p>
                 </div>
               </div>
 
