@@ -109,54 +109,66 @@ export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5
   const token = settings.makerworld_token || '';
   const cookie = settings.makerworld_cookie || '';
 
-  // Strategy 1: Direct REST API with Token/Cookie
-  if (token || cookie) {
-    try {
-      console.log(`[MakerWorld API Engine] Searching designs for "${keyword}"...`);
-      const apiUrl = `https://makerworld.com/api/v1/search-service/select/design?keyword=${encodeURIComponent(keyword)}&offset=0&limit=${limit}`;
-      const headers: Record<string, string> = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://makerworld.com/en/search/models',
-        'Origin': 'https://makerworld.com'
-      };
+  // Strategy 1: Direct REST API with x-bbl headers
+  try {
+    console.log(`[MakerWorld API Engine] Searching designs for "${keyword}"...`);
+    const apiUrl = `https://makerworld.com/api/v1/search-service/select/design`;
+    const headers: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'Referer': `https://makerworld.com/en/search/models?keyword=${encodeURIComponent(keyword)}`,
+      'Origin': 'https://makerworld.com',
+      'x-bbl-app-source': 'makerworld',
+      'x-bbl-client-name': 'MakerWorld',
+      'x-bbl-client-type': 'web',
+      'x-bbl-client-version': '00.00.00.01'
+    };
 
-      if (token) headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      if (cookie) headers['Cookie'] = cookie;
+    if (token) headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    if (cookie) headers['Cookie'] = cookie;
 
-      const res = await fetch(apiUrl, { headers });
-      if (res.ok) {
-        const json = await res.json();
-        const hits = json.hits || json.data?.hits || [];
-        console.log(`[MakerWorld API Engine] Search returned ${hits.length} items!`);
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        keyword: keyword,
+        offset: 0,
+        limit: limit
+      })
+    });
 
-        for (const hit of hits) {
-          const modelId = String(hit.id || hit.designId);
-          const realData = await fetchRealModelDetails(modelId);
+    if (res.ok) {
+      const json = await res.json();
+      const hits = json.hits || json.data?.hits || [];
+      console.log(`[MakerWorld API Engine] Search returned ${hits.length} items!`);
 
-          const modelData: ScrapedModelData = realData || {
-            makerworldId: modelId,
-            title: hit.title || hit.name || `${keyword} 3D Model #${modelId}`,
-            url: `https://makerworld.com/en/models/${modelId}`,
-            author: hit.authorName || hit.creator || 'MakerWorld Creator',
-            filamentTypes: ['PLA Silk', 'PETG'],
-            filamentColors: ['Gold', 'Black'],
-            printTimeMinutes: hit.printTime || 120,
-            weightGrams: hit.weight || 50,
-            rawImages: [hit.coverUrl || hit.cover || ''],
-          };
+      for (const hit of hits) {
+        const modelId = String(hit.id || hit.designId);
+        const realData = await fetchRealModelDetails(modelId);
 
-          results.push(modelData);
-          await saveProductToDb(modelData);
-        }
+        const modelData: ScrapedModelData = realData || {
+          makerworldId: modelId,
+          title: hit.title || hit.name || `${keyword} 3D Model #${modelId}`,
+          url: `https://makerworld.com/en/models/${modelId}`,
+          author: hit.authorName || hit.creator || 'MakerWorld Creator',
+          filamentTypes: ['PLA Silk', 'PETG'],
+          filamentColors: ['Gold', 'Black'],
+          printTimeMinutes: hit.printTime || 120,
+          weightGrams: hit.weight || 50,
+          rawImages: [hit.coverUrl || hit.cover || ''],
+        };
 
-        if (results.length > 0) {
-          return results;
-        }
+        results.push(modelData);
+        await saveProductToDb(modelData);
       }
-    } catch (err) {
-      console.error('[MakerWorld API Engine Error]:', err);
+
+      if (results.length > 0) {
+        return results;
+      }
     }
+  } catch (err) {
+    console.error('[MakerWorld API Engine Error]:', err);
   }
 
   // Strategy 2: Server Search Engine Scraper (Bypasses Cloudflare domain block)

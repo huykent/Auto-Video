@@ -1,4 +1,4 @@
-// Auto-Video Chrome Extension Service Worker (V1.3.0 Keyword-Targeted Search Engine)
+// Auto-Video Chrome Extension Service Worker (V1.4.0 Header-Authenticated Engine)
 
 let SERVER_URL = 'http://192.168.11.11:3008';
 
@@ -17,7 +17,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Polling alarm every 3 seconds as fallback
+// Polling alarm every 3 seconds
 chrome.alarms.create('pollServer', { periodInMinutes: 0.05 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'pollServer') {
@@ -50,53 +50,61 @@ async function executeScrapeJob(job) {
 
   let hitsFound = [];
 
-  // STRATEGY A1: Direct GET Search API Call
+  const bblHeaders = {
+    'Accept': 'application/json, text/plain, */*',
+    'Content-Type': 'application/json',
+    'Origin': 'https://makerworld.com',
+    'Referer': `https://makerworld.com/en/search/models?keyword=${encodeURIComponent(keyword)}`,
+    'x-bbl-app-source': 'makerworld',
+    'x-bbl-client-name': 'MakerWorld',
+    'x-bbl-client-type': 'web',
+    'x-bbl-client-version': '00.00.00.01'
+  };
+
+  // STRATEGY A1: Direct POST Search Select Endpoint with x-bbl headers
   try {
-    const apiUrl = `https://makerworld.com/api/v1/search-service/select/design?keyword=${encodeURIComponent(keyword)}&offset=0&limit=${maxResults || 10}`;
+    const apiUrl = `https://makerworld.com/api/v1/search-service/select/design`;
     const res = await fetch(apiUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json, text/plain, */*' }
+      method: 'POST',
+      headers: bblHeaders,
+      body: JSON.stringify({
+        keyword: keyword,
+        offset: 0,
+        limit: maxResults || 10
+      })
     });
 
     if (res.ok) {
       const json = await res.json();
       const rawHits = json.hits || json.data?.hits || json.designs || json.data?.designs || json.items || json.data?.items || (Array.isArray(json) ? json : []);
       if (Array.isArray(rawHits) && rawHits.length > 0) {
-        console.log(`[Auto-Video Bridge] Strategy A1 (GET API) found ${rawHits.length} keyword-matched items!`);
+        console.log(`[Auto-Video Bridge] Strategy A1 (POST Select) found ${rawHits.length} items!`);
         hitsFound = rawHits;
       }
     }
   } catch (e) {
-    console.warn('[Auto-Video Bridge] Strategy A1 GET error:', e);
+    console.warn('[Auto-Video Bridge] Strategy A1 POST error:', e);
   }
 
-  // STRATEGY A2: Direct POST Search API Call
+  // STRATEGY A2: Direct GET Search Select Endpoint
   if (hitsFound.length === 0) {
     try {
-      const apiUrl = `https://makerworld.com/api/v1/search-service/select/design`;
+      const apiUrl = `https://makerworld.com/api/v1/search-service/select/design?keyword=${encodeURIComponent(keyword)}&offset=0&limit=${maxResults || 10}`;
       const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 
-          'Accept': 'application/json, text/plain, */*',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          keyword: keyword,
-          offset: 0,
-          limit: maxResults || 10
-        })
+        method: 'GET',
+        headers: bblHeaders
       });
 
       if (res.ok) {
         const json = await res.json();
         const rawHits = json.hits || json.data?.hits || json.designs || json.data?.designs || json.items || json.data?.items || (Array.isArray(json) ? json : []);
         if (Array.isArray(rawHits) && rawHits.length > 0) {
-          console.log(`[Auto-Video Bridge] Strategy A2 (POST API) found ${rawHits.length} keyword-matched items!`);
+          console.log(`[Auto-Video Bridge] Strategy A2 (GET Select) found ${rawHits.length} items!`);
           hitsFound = rawHits;
         }
       }
     } catch (e) {
-      console.warn('[Auto-Video Bridge] Strategy A2 POST error:', e);
+      console.warn('[Auto-Video Bridge] Strategy A2 GET error:', e);
     }
   }
 
@@ -114,7 +122,6 @@ async function executeScrapeJob(job) {
             const nextJson = JSON.parse(nextDataMatch[1]);
             const pageProps = nextJson.props?.pageProps || {};
             
-            // Recursively search for hits array inside pageProps
             const findHits = (obj) => {
               if (!obj || typeof obj !== 'object') return null;
               if (Array.isArray(obj.hits) && obj.hits.length > 0) return obj.hits;
@@ -143,7 +150,7 @@ async function executeScrapeJob(job) {
     }
   }
 
-  // Process and enrich only legitimate keyword-matched models
+  // Process and enrich matched models
   try {
     const processedHits = [];
     for (const hit of hitsFound) {
