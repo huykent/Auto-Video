@@ -17,7 +17,8 @@ import {
   LogIn,
   RefreshCw,
   Mail,
-  Lock
+  Lock,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -27,6 +28,8 @@ export default function SettingsPage() {
   const [makerworldCookie, setMakerworldCookie] = useState('');
   const [makerworldEmail, setMakerworldEmail] = useState('');
   const [makerworldPassword, setMakerworldPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [requiresCode, setRequiresCode] = useState(false);
   const [aiMode, setAiMode] = useState<'mock' | 'live'>('mock');
   const [maxCrawlItems, setMaxCrawlItems] = useState('10');
   
@@ -104,7 +107,7 @@ export default function SettingsPage() {
     }
 
     setLoggingIn(true);
-    setToastMessage('⏳ Đang khởi chạy Playwright ngầm để Đăng nhập MakerWorld...');
+    setToastMessage(requiresCode ? '⏳ Đang gửi Mã Xác Thực 2FA tới MakerWorld...' : '⏳ Đang khởi chạy Playwright ngầm để Đăng nhập MakerWorld...');
 
     try {
       const res = await fetch('/api/settings/autologin', {
@@ -113,6 +116,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           email: makerworldEmail,
           password: makerworldPassword,
+          verificationCode: requiresCode ? verificationCode : undefined,
         }),
       });
 
@@ -120,7 +124,12 @@ export default function SettingsPage() {
       if (res.ok && data.success) {
         if (data.token) setMakerworldToken(data.token);
         if (data.cookie) setMakerworldCookie(data.cookie);
+        setRequiresCode(false);
+        setVerificationCode('');
         setToastMessage('🎉 Đăng nhập thành công! Auth Token & Cookie đã được trích xuất và lưu vào hệ thống.');
+      } else if (data.requiresVerificationCode) {
+        setRequiresCode(true);
+        setToastMessage('📩 MakerWorld đã gửi Mã Xác Thực (Verification Code) về Email của bạn. Hãy điền mã vào ô bên dưới và bấm nút Xác Thực!');
       } else {
         setToastMessage(`❌ Đăng nhập thất bại: ${data.error || 'Có lỗi xảy ra.'}`);
       }
@@ -161,7 +170,7 @@ export default function SettingsPage() {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
         
         {toastMessage && (
-          <div className={`p-4 rounded-xl text-sm font-medium border backdrop-blur-xl ${toastMessage.includes('✅') || toastMessage.includes('🎉') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : toastMessage.includes('⏳') ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+          <div className={`p-4 rounded-xl text-sm font-medium border backdrop-blur-xl ${toastMessage.includes('✅') || toastMessage.includes('🎉') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : toastMessage.includes('⏳') || toastMessage.includes('📩') ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 animate-pulse' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
             {toastMessage}
           </div>
         )}
@@ -215,7 +224,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Card 2: MakerWorld Account Auth & Auto-Login Engine */}
+            {/* Card 2: MakerWorld Account Auth & Auto-Login Engine with 2FA Support */}
             <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-5 shadow-[0_0_30px_rgba(6,182,212,0.1)]">
               <div className="flex items-center justify-between pb-4 border-b border-cyan-500/15">
                 <div className="flex items-center gap-3">
@@ -223,8 +232,8 @@ export default function SettingsPage() {
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">MakerWorld Cloudflare Authentication (Auto-Login & Cookie Engine)</h3>
-                    <p className="text-xs text-slate-400">Tự động đăng nhập ngầm để bóc tách Auth Token và Cookie bypass 100% Cloudflare</p>
+                    <h3 className="text-lg font-bold text-white">MakerWorld Cloudflare Authentication (2FA Email Code Engine)</h3>
+                    <p className="text-xs text-slate-400">Tự động đăng nhập ngầm & nhập mã 2FA từ Email để bóc tách Cookie bypass 100% Cloudflare</p>
                   </div>
                 </div>
               </div>
@@ -267,6 +276,23 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {/* 2FA Email Code Input Field (Conditional Render) */}
+              {requiresCode && (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                    <ShieldAlert className="w-4 h-4 text-amber-400 animate-pulse" />
+                    NHẬP MÃ XÁC THỰC (VERIFICATION CODE) TỪ EMAIL CỦA BẠN:
+                  </div>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="VD: 489201"
+                    className="w-full bg-slate-950 border border-amber-500/40 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-400 tracking-widest text-center font-bold"
+                  />
+                </div>
+              )}
+
               {/* Auto Login Action Button */}
               <div className="flex justify-end pt-2">
                 <button
@@ -276,7 +302,7 @@ export default function SettingsPage() {
                   className="px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 transition-all text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-50"
                 >
                   {loggingIn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-                  {loggingIn ? 'Đang Đăng Nhập Ngầm...' : '🚀 Tự Động Đăng Nhập & Lấy Cookie Ngầm'}
+                  {loggingIn ? 'Đang Xử Lý...' : requiresCode ? 'Gửi Mã Xác Thực 2FA & Hoàn Tất' : '🚀 Tự Động Đăng Nhập & Lấy Cookie Ngầm'}
                 </button>
               </div>
 

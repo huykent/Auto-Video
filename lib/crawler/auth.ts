@@ -5,10 +5,11 @@ export interface AutoLoginResult {
   success: boolean;
   token?: string;
   cookie?: string;
+  requiresVerificationCode?: boolean;
   error?: string;
 }
 
-export async function autoLoginMakerWorld(email?: string, password?: string): Promise<AutoLoginResult> {
+export async function autoLoginMakerWorld(email?: string, password?: string, verificationCode?: string): Promise<AutoLoginResult> {
   if (!email || !password) {
     return { success: false, error: 'Email và Mật khẩu MakerWorld không được để trống.' };
   }
@@ -34,7 +35,7 @@ export async function autoLoginMakerWorld(email?: string, password?: string): Pr
   // Intercept authentication API response to capture JWT token
   page.on('response', async (res) => {
     const url = res.url();
-    if (url.includes('/api/v1/user-service') || url.includes('/login') || url.includes('/token')) {
+    if (url.includes('/api/v1/user-service') || url.includes('/login') || url.includes('/token') || url.includes('/verify')) {
       try {
         const headers = res.headers();
         const authHeader = headers['authorization'] || headers['Authorization'];
@@ -72,8 +73,28 @@ export async function autoLoginMakerWorld(email?: string, password?: string): Pr
     const submitSelector = 'button[type="submit"], button:has-text("Sign in"), button:has-text("Log in")';
     await page.click(submitSelector);
 
-    // Wait for post-login redirection or auth response
-    await page.waitForTimeout(5000);
+    // Wait 3s to inspect if a 2FA Verification Code input appears
+    await page.waitForTimeout(3000);
+
+    const codeInputSelector = 'input[placeholder*="code" i], input[placeholder*="verification" i], input[name*="code" i]';
+    const isCodeInputVisible = await page.$(codeInputSelector).then((el) => el?.isVisible()).catch(() => false);
+
+    if (isCodeInputVisible || (await page.content()).includes('verification code')) {
+      if (verificationCode) {
+        console.log(`[Auto-Login Engine] Submitting 2FA Verification Code ${verificationCode}...`);
+        await page.fill(codeInputSelector, verificationCode);
+        const confirmBtn = 'button:has-text("Verify"), button:has-text("Confirm"), button[type="submit"]';
+        await page.click(confirmBtn);
+        await page.waitForTimeout(4000);
+      } else {
+        await browser.close();
+        return {
+          success: false,
+          requiresVerificationCode: true,
+          error: 'MakerWorld yêu cầu nhập Mã Xác Thực (Verification Code) từ Email của bạn!',
+        };
+      }
+    }
 
     // Extract browser cookies
     const cookies = await context.cookies();
@@ -98,7 +119,7 @@ export async function autoLoginMakerWorld(email?: string, password?: string): Pr
       await browser.close();
       return {
         success: false,
-        error: 'Không tìm thấy Auth Token sau khi bấm Đăng nhập. Có thể bị chặn bởi CAPTCHA hoặc 2FA.',
+        error: 'Không tìm thấy Auth Token sau khi đăng nhập. Vui lòng kiểm tra lại Email/Mật khẩu hoặc thử lại.',
       };
     }
   } catch (err: any) {

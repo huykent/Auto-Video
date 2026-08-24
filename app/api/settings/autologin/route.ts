@@ -7,9 +7,9 @@ export const revalidate = 0;
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, verificationCode } = body;
 
-    const result = await autoLoginMakerWorld(email, password);
+    const result = await autoLoginMakerWorld(email, password, verificationCode);
     if (result.success) {
       return NextResponse.json(result);
     } else {
