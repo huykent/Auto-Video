@@ -37,6 +37,7 @@ interface ProductItem {
 export default function StudioPage() {
   const [productsList, setProductsList] = useState<ProductItem[]>([]);
   const [selectedProdIds, setSelectedProdIds] = useState<string[]>([]);
+  const [hasInitializedSelect, setHasInitializedSelect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoStatusMsg, setVideoStatusMsg] = useState('');
@@ -48,17 +49,20 @@ export default function StudioPage() {
         const data: ProductItem[] = await res.json();
         setProductsList(data);
 
-        const searchParams = new URLSearchParams(window.location.search);
-        const singleParam = searchParams.get('product');
-        const multiParam = searchParams.get('products');
+        if (!hasInitializedSelect) {
+          const searchParams = new URLSearchParams(window.location.search);
+          const singleParam = searchParams.get('product');
+          const multiParam = searchParams.get('products');
 
-        if (multiParam) {
-          const ids = multiParam.split(',').filter(Boolean);
-          setSelectedProdIds(ids);
-        } else if (singleParam) {
-          setSelectedProdIds([singleParam]);
-        } else if (data.length > 0 && selectedProdIds.length === 0) {
-          setSelectedProdIds([data[0].id]);
+          if (multiParam) {
+            const ids = multiParam.split(',').filter(Boolean);
+            setSelectedProdIds(ids);
+          } else if (singleParam) {
+            setSelectedProdIds([singleParam]);
+          } else if (data.length > 0) {
+            setSelectedProdIds([data[0].id]);
+          }
+          setHasInitializedSelect(true);
         }
       }
     } catch (err) {
@@ -72,7 +76,7 @@ export default function StudioPage() {
     fetchProducts();
     const interval = setInterval(fetchProducts, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [hasInitializedSelect]);
 
   const toggleSelectProduct = (id: string) => {
     if (selectedProdIds.includes(id)) {
