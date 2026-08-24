@@ -1,17 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Auto-Video MakerWorld Bridge",
-  "version": "1.1.0",
-  "description": "Chrome Extension Bridge for Auto-Video to scrape MakerWorld models directly via browser context bypass Cloudflare WAF.",
+  "version": "1.4.1",
+  "description": "Chrome Extension Bridge allowing Auto-Video server to scrape MakerWorld models via user's browser context.",
   "permissions": [
     "storage",
     "alarms"
   ],
   "host_permissions": [
-    "http://192.168.11.11:3008/*",
     "http://localhost:3008/*",
+    "http://192.168.11.11:3008/*",
     "https://makerworld.com/*",
-    "https://*.bambulab.com/*"
+    "https://api.bambulab.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -19,14 +19,15 @@
   "content_scripts": [
     {
       "matches": [
-        "http://192.168.11.11:3008/*",
-        "http://localhost:3008/*"
+        "http://localhost:3008/discovery*",
+        "http://192.168.11.11:3008/discovery*"
       ],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_end"
     }
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "Auto-Video Bridge V1.4.1"
   }
 }
