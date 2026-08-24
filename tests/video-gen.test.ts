@@ -21,7 +21,7 @@ describe('AI Video Prompt Engineering & Veo 3 Pipeline', () => {
 
   it('should generate simulated Veo 3 video payload in mock mode', async () => {
     const result = await generateVeoVideo('prod-123', '/storage/raw_images/test.jpg', 'Test Prompt', { mock: true });
-    expect(result.jobId).toContain('veo-mock-');
+    expect(result.jobId).toContain('veo-demo-');
     expect(result.videoPath).toContain('prod-123');
   });
 });
