@@ -63,7 +63,7 @@ export function formatPrintTime(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-// Fetch real authentic model metadata from Bambu Cloud REST API
+// Fetch real authentic model metadata and ALL images from Bambu Cloud REST API
 export async function fetchRealModelDetails(designId: string): Promise<ScrapedModelData | null> {
   try {
     const settings = await getSystemSettings();
@@ -83,6 +83,28 @@ export async function fetchRealModelDetails(designId: string): Promise<ScrapedMo
       const title = data.title || `3D Model #${designId}`;
       const author = data.user?.name || data.user?.username || 'MakerWorld Creator';
       const coverUrl = data.coverUrl || '';
+      
+      const photos: string[] = [];
+      if (coverUrl) photos.push(coverUrl);
+
+      if (Array.isArray(data.designPhotos)) {
+        for (const p of data.designPhotos) {
+          const u = typeof p === 'string' ? p : p?.url || p?.imageUrl;
+          if (typeof u === 'string' && u.startsWith('http') && !photos.includes(u)) {
+            photos.push(u);
+          }
+        }
+      }
+
+      if (Array.isArray(data.pictures)) {
+        for (const p of data.pictures) {
+          const u = typeof p === 'string' ? p : p?.url || p?.imageUrl;
+          if (typeof u === 'string' && u.startsWith('http') && !photos.includes(u)) {
+            photos.push(u);
+          }
+        }
+      }
+
       const url = `https://makerworld.com/en/models/${designId}`;
 
       return {
@@ -94,7 +116,7 @@ export async function fetchRealModelDetails(designId: string): Promise<ScrapedMo
         filamentColors: ['Gold', 'Black'],
         printTimeMinutes: 120,
         weightGrams: 50,
-        rawImages: coverUrl ? [coverUrl] : [],
+        rawImages: photos.length > 0 ? photos : (coverUrl ? [coverUrl] : []),
       };
     }
   } catch (e) {
@@ -117,7 +139,7 @@ function decodeBingU(uParam: string): string {
 export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5): Promise<ScrapedModelData[]> {
   const results: ScrapedModelData[] = [];
 
-  // 🚀 AUTOMATED SERVER ENGINE: Search Bing HTML index for site:makerworld.com <keyword> (100% bypasses Cloudflare)
+  // AUTOMATED SERVER ENGINE: Search Bing HTML index for site:makerworld.com <keyword>
   try {
     console.log(`[Automated Server Engine] Searching MakerWorld models for "${keyword}"...`);
     const bingUrl = `https://www.bing.com/search?q=site:makerworld.com+${encodeURIComponent(keyword)}`;
@@ -132,7 +154,6 @@ export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5
       const html = await bingRes.text();
       const modelIds: string[] = [];
 
-      // Extract hrefs from h2 search results
       const hrefMatches = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
 
       for (const rawHref of hrefMatches) {
@@ -235,7 +256,7 @@ export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5
   return results;
 }
 
-async function saveProductToDb(modelData: ScrapedModelData) {
+export async function saveProductToDb(modelData: ScrapedModelData) {
   const now = new Date().toISOString();
   const existing = await db.select().from(products).where(eq(products.makerworldId, modelData.makerworldId));
   const coverImg = modelData.rawImages[0] || null;
