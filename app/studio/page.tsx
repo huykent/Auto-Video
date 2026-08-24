@@ -142,10 +142,6 @@ export default function StudioPage() {
   };
 
   const getVideoUrl = (prod: ProductItem) => {
-    if (!prod.generatedVideoPath) return null;
-    if (prod.generatedVideoPath.startsWith('/api/video/file')) {
-      return prod.generatedVideoPath;
-    }
     return `/api/video/file?productId=${prod.id}`;
   };
 
@@ -291,21 +287,11 @@ export default function StudioPage() {
 
                     {/* Preview Image & Video Container */}
                     <div className="aspect-video bg-slate-950 rounded-xl overflow-hidden border border-cyan-500/20 relative flex items-center justify-center">
-                      {videoUrl ? (
-                        <video
-                          src={videoUrl}
-                          controls
-                          className="w-full h-full object-cover"
-                        />
-                      ) : coverImg ? (
-                        <img
-                          src={coverImg}
-                          alt={prod.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Boxes className="w-12 h-12 text-slate-600" />
-                      )}
+                      <video
+                        src={videoUrl}
+                        controls
+                        className="w-full h-full object-cover"
+                      />
 
                       <div className={`absolute top-2.5 right-2.5 px-3 py-1 rounded-full border text-[10px] font-mono backdrop-blur-md ${
                         prod.status === 'GENERATION_FAILED'
