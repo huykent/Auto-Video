@@ -13,7 +13,12 @@ export function startWorker() {
       const { jobId, keyword, maxResults } = job.data;
 
       try {
-        // Wait 15 seconds to let Chrome Extension pick up and process the PENDING job first
+        if (jobId) {
+          // Mark status as WAITING_EXT so Chrome Extension can pick it up
+          await db.update(searchJobs).set({ status: 'WAITING_EXT' }).where(eq(searchJobs.id, jobId));
+        }
+
+        // Wait up to 15 seconds for Chrome Extension to pick up and complete the job
         let extensionHandled = false;
         for (let i = 0; i < 15; i++) {
           await new Promise((r) => setTimeout(r, 1000));

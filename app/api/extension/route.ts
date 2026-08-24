@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../lib/db';
 import { searchJobs, products } from '../../../lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,19 +15,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, connected: true });
     }
 
-    // Extension Polling for Pending Search Jobs
+    // Extension Polling for Pending / Waiting Search Jobs
     if (action === 'poll') {
       const pendingJobs = await db
         .select()
         .from(searchJobs)
-        .where(eq(searchJobs.status, 'PENDING'))
+        .where(
+          or(
+            eq(searchJobs.status, 'PENDING'),
+            eq(searchJobs.status, 'WAITING_EXT')
+          )
+        )
         .limit(1);
 
       if (pendingJobs.length > 0) {
         const job = pendingJobs[0];
         await db
           .update(searchJobs)
-          .set({ status: 'RUNNING' })
+          .set({ status: 'EXT_RUNNING' })
           .where(eq(searchJobs.id, job.id));
 
         return NextResponse.json({
