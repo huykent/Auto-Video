@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auto-Video MakerWorld Bridge",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Chrome Extension Bridge allowing Auto-Video server to scrape MakerWorld models via user's browser context.",
   "permissions": [
     "storage",
@@ -28,6 +28,6 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Auto-Video Bridge V1.4.1"
+    "default_title": "Auto-Video Bridge V1.4.2"
   }
 }

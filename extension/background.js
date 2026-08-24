@@ -1,4 +1,4 @@
-// Auto-Video Chrome Extension Service Worker (V1.4.0 Header-Authenticated Engine)
+// Auto-Video Chrome Extension Service Worker (V1.4.2 Session-Authenticated Engine)
 
 let SERVER_URL = 'http://192.168.11.11:3008';
 
@@ -46,7 +46,7 @@ async function pollForJobs() {
 
 async function executeScrapeJob(job) {
   const { jobId, keyword, maxResults } = job;
-  console.log(`[Auto-Video Bridge] Executing browser scrape for "${keyword}" (max: ${maxResults})...`);
+  console.log(`[Auto-Video Bridge V1.4.2] Executing browser scrape for "${keyword}" (max: ${maxResults})...`);
 
   let hitsFound = [];
 
@@ -61,11 +61,12 @@ async function executeScrapeJob(job) {
     'x-bbl-client-version': '00.00.00.01'
   };
 
-  // STRATEGY A1: Direct POST Search Select Endpoint with x-bbl headers
+  // STRATEGY A1: POST Select Design API with credentials: 'include'
   try {
     const apiUrl = `https://makerworld.com/api/v1/search-service/select/design`;
     const res = await fetch(apiUrl, {
       method: 'POST',
+      credentials: 'include',
       headers: bblHeaders,
       body: JSON.stringify({
         keyword: keyword,
@@ -74,11 +75,13 @@ async function executeScrapeJob(job) {
       })
     });
 
+    console.log(`[Auto-Video Bridge] Strategy A1 POST Status: ${res.status}`);
     if (res.ok) {
       const json = await res.json();
+      console.log('[Auto-Video Bridge] Strategy A1 Response JSON:', json);
       const rawHits = json.hits || json.data?.hits || json.designs || json.data?.designs || json.items || json.data?.items || (Array.isArray(json) ? json : []);
       if (Array.isArray(rawHits) && rawHits.length > 0) {
-        console.log(`[Auto-Video Bridge] Strategy A1 (POST Select) found ${rawHits.length} items!`);
+        console.log(`[Auto-Video Bridge] Strategy A1 found ${rawHits.length} items!`);
         hitsFound = rawHits;
       }
     }
@@ -86,20 +89,22 @@ async function executeScrapeJob(job) {
     console.warn('[Auto-Video Bridge] Strategy A1 POST error:', e);
   }
 
-  // STRATEGY A2: Direct GET Search Select Endpoint
+  // STRATEGY A2: GET Select Design API with credentials: 'include'
   if (hitsFound.length === 0) {
     try {
       const apiUrl = `https://makerworld.com/api/v1/search-service/select/design?keyword=${encodeURIComponent(keyword)}&offset=0&limit=${maxResults || 10}`;
       const res = await fetch(apiUrl, {
         method: 'GET',
+        credentials: 'include',
         headers: bblHeaders
       });
 
+      console.log(`[Auto-Video Bridge] Strategy A2 GET Status: ${res.status}`);
       if (res.ok) {
         const json = await res.json();
         const rawHits = json.hits || json.data?.hits || json.designs || json.data?.designs || json.items || json.data?.items || (Array.isArray(json) ? json : []);
         if (Array.isArray(rawHits) && rawHits.length > 0) {
-          console.log(`[Auto-Video Bridge] Strategy A2 (GET Select) found ${rawHits.length} items!`);
+          console.log(`[Auto-Video Bridge] Strategy A2 found ${rawHits.length} items!`);
           hitsFound = rawHits;
         }
       }
@@ -108,12 +113,14 @@ async function executeScrapeJob(job) {
     }
   }
 
-  // STRATEGY B: HTML Next.js __NEXT_DATA__ Page Props Parsing
+  // STRATEGY B: HTML fetch with credentials: 'include' & __NEXT_DATA__ / Model ID Regex
   if (hitsFound.length === 0) {
-    console.log('[Auto-Video Bridge] Executing Strategy B (__NEXT_DATA__ parsing)...');
+    console.log('[Auto-Video Bridge] Executing Strategy B (HTML fetch with session credentials)...');
     try {
       const searchPageUrl = `https://makerworld.com/en/search/models?keyword=${encodeURIComponent(keyword)}`;
-      const htmlRes = await fetch(searchPageUrl);
+      const htmlRes = await fetch(searchPageUrl, { credentials: 'include' });
+      console.log(`[Auto-Video Bridge] Strategy B HTML Status: ${htmlRes.status}`);
+
       if (htmlRes.ok) {
         const html = await htmlRes.text();
         const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/s);
@@ -137,11 +144,21 @@ async function executeScrapeJob(job) {
 
             const extractedHits = findHits(pageProps);
             if (extractedHits && extractedHits.length > 0) {
-              console.log(`[Auto-Video Bridge] Strategy B (__NEXT_DATA__ recursive) found ${extractedHits.length} items!`);
+              console.log(`[Auto-Video Bridge] Strategy B (__NEXT_DATA__) found ${extractedHits.length} items!`);
               hitsFound = extractedHits;
             }
           } catch (err) {
             console.warn('[Auto-Video Bridge] __NEXT_DATA__ JSON parse error:', err);
+          }
+        }
+
+        // Fallback HTML Regex for design cards inside main search container if __NEXT_DATA__ was empty
+        if (hitsFound.length === 0) {
+          const modelMatches = [...html.matchAll(/\/models\/(\d+)/g)].map(m => m[1]);
+          const uniqueIds = [...new Set(modelMatches)].slice(0, maxResults || 10);
+          if (uniqueIds.length > 0) {
+            console.log(`[Auto-Video Bridge] Strategy B (HTML Regex) found ${uniqueIds.length} model IDs:`, uniqueIds);
+            hitsFound = uniqueIds.map(id => ({ id }));
           }
         }
       }
@@ -154,12 +171,14 @@ async function executeScrapeJob(job) {
   try {
     const processedHits = [];
     for (const hit of hitsFound) {
-      const modelId = String(hit.id || hit.designId || hit.modelId);
-      if (!modelId || modelId === 'undefined') continue;
+      const modelId = String(hit.id || hit.designId || hit.modelId || hit);
+      if (!modelId || modelId === 'undefined' || modelId === '[object Object]') continue;
 
       let fullDetail = null;
       try {
-        const detailRes = await fetch(`https://api.bambulab.com/v1/design-service/design/${modelId}`);
+        const detailRes = await fetch(`https://api.bambulab.com/v1/design-service/design/${modelId}`, {
+          credentials: 'include'
+        });
         if (detailRes.ok) {
           fullDetail = await detailRes.json();
         }
@@ -190,7 +209,7 @@ async function executeScrapeJob(job) {
         hits: processedHits
       })
     });
-    console.log(`[Auto-Video Bridge] Job ${jobId} reported COMPLETED to server.`);
+    console.log(`[Auto-Video Bridge] Job ${jobId} reported COMPLETED to server with ${processedHits.length} items.`);
 
   } catch (err) {
     console.error('[Auto-Video Bridge Error]:', err);
