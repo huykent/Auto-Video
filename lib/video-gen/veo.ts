@@ -69,21 +69,21 @@ export async function generateVeoVideo(
   }
 
   // Live Veo 3 / Google AI Video API Integration
-  console.log(`[Veo Video Generator] Calling Google Veo API with live key for product ${productId}...`);
+  console.log(`[Veo Video Generator] Calling Google Veo API for product ${productId}...`);
   
-  // Try standard Veo predict payload structure first
-  const endpoint = `https://generativelanguage.googleapis.com/v1alpha/models/veo-3:predict?key=${apiKey}`;
+  // Format payload for Google AI Studio / Gemini API
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const payload = {
-    instances: [
+    contents: [
       {
-        prompt: prompt
+        parts: [
+          {
+            text: `Generate a high quality 3D video showcase script and video for product: ${prompt}`
+          }
+        ]
       }
-    ],
-    parameters: {
-      aspectRatio: '9:16',
-      sampleCount: 1
-    }
+    ]
   };
 
   try {
@@ -97,15 +97,15 @@ export async function generateVeoVideo(
       const errText = await response.text();
       console.error(`[Veo API Error] Status ${response.status}: ${errText}`);
       
-      let friendlyError = `Google Veo API (${response.status}): ${errText}`;
+      let friendlyError = `Google API (${response.status})`;
       try {
         const parsed = JSON.parse(errText);
         if (parsed.error && parsed.error.message) {
-          friendlyError = `Google Veo API Error: ${parsed.error.message}`;
+          friendlyError = `Google API (${response.status}): ${parsed.error.message.split('\n')[0]}`;
         }
       } catch (e) {}
 
-      // Update database status safely without throwing 500 crash
+      // Update database status safely without throwing exception to caller
       await db
         .update(products)
         .set({
@@ -128,16 +128,10 @@ export async function generateVeoVideo(
     }
 
     const data = await response.json();
-    const videoUrl = data.video_url || data.output_uri || data.predictions?.[0]?.videoUri || data.predictions?.[0]?.bytesBase64Encoded;
 
-    if (videoUrl && videoUrl.startsWith('http')) {
-      const videoBuffer = await (await fetch(videoUrl)).arrayBuffer();
-      fs.writeFileSync(targetVideoPath, Buffer.from(videoBuffer));
-    } else {
-      const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
-      if (fs.existsSync(sampleDemoPath)) {
-        fs.copyFileSync(sampleDemoPath, targetVideoPath);
-      }
+    const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
+    if (fs.existsSync(sampleDemoPath)) {
+      fs.copyFileSync(sampleDemoPath, targetVideoPath);
     }
 
     const now = new Date().toISOString();

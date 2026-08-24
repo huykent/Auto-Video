@@ -16,6 +16,7 @@ import {
   Video,
   FileText,
   Sliders,
+  AlertTriangle,
   ExternalLink
 } from 'lucide-react';
 
@@ -30,6 +31,7 @@ interface ProductItem {
   selectedCoverImage?: string | null;
   videoPrompt?: string | null;
   generatedVideoPath?: string | null;
+  errorMessage?: string | null;
 }
 
 export default function StudioPage() {
@@ -46,7 +48,6 @@ export default function StudioPage() {
         const data: ProductItem[] = await res.json();
         setProductsList(data);
 
-        // Parse query params from URL
         const searchParams = new URLSearchParams(window.location.search);
         const singleParam = searchParams.get('product');
         const multiParam = searchParams.get('products');
@@ -56,8 +57,7 @@ export default function StudioPage() {
           setSelectedProdIds(ids);
         } else if (singleParam) {
           setSelectedProdIds([singleParam]);
-        } else if (data.length > 0) {
-          // Default: preselect first product if none specified in URL
+        } else if (data.length > 0 && selectedProdIds.length === 0) {
           setSelectedProdIds([data[0].id]);
         }
       }
@@ -303,10 +303,25 @@ export default function StudioPage() {
                         <Boxes className="w-12 h-12 text-slate-600" />
                       )}
 
-                      <div className="absolute top-2.5 right-2.5 px-3 py-1 rounded-full bg-slate-950/80 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 backdrop-blur-md">
+                      <div className={`absolute top-2.5 right-2.5 px-3 py-1 rounded-full border text-[10px] font-mono backdrop-blur-md ${
+                        prod.status === 'GENERATION_FAILED'
+                          ? 'bg-rose-950/80 border-rose-500/40 text-rose-300'
+                          : 'bg-slate-950/80 border-cyan-500/30 text-cyan-300'
+                      }`}>
                         {prod.status}
                       </div>
                     </div>
+
+                    {/* API Error Message Alert if Failed */}
+                    {prod.errorMessage && (
+                      <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-mono text-rose-300 flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold text-rose-200">Thông báo từ Google API:</div>
+                          <div className="text-[11px] text-rose-300/90">{prod.errorMessage}</div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* AI Video Prompt Info */}
                     <div className="bg-slate-950/80 rounded-xl p-4 text-xs font-mono text-slate-300 space-y-1.5 border border-cyan-500/15">

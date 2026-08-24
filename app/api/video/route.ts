@@ -50,18 +50,22 @@ export async function POST(request: Request) {
 
     const processed = [];
     for (const productId of productIdList) {
-      const item = await db.select().from(products).where(eq(products.id, productId));
-      if (item.length > 0) {
-        const prod = item[0];
-        const types = JSON.parse(prod.filamentTypes || '[]');
-        const colors = JSON.parse(prod.filamentColors || '[]');
-        const prompt = buildVideoPrompt(prod.title, types, colors);
+      try {
+        const item = await db.select().from(products).where(eq(products.id, productId));
+        if (item.length > 0) {
+          const prod = item[0];
+          const types = JSON.parse(prod.filamentTypes || '[]');
+          const colors = JSON.parse(prod.filamentColors || '[]');
+          const prompt = buildVideoPrompt(prod.title, types, colors);
 
-        const imgToUse = coverImage || prod.selectedCoverImage || '';
+          const imgToUse = coverImage || prod.selectedCoverImage || '';
 
-        // Call Veo 3 Video AI Generator (Mock / Live mode from settings)
-        await generateVeoVideo(productId, imgToUse, prompt, { mock: isMockMode });
-        processed.push(productId);
+          // Call Veo 3 Video AI Generator (Mock / Live mode from settings)
+          await generateVeoVideo(productId, imgToUse, prompt, { mock: isMockMode });
+          processed.push(productId);
+        }
+      } catch (err: any) {
+        console.error(`[Video Route Error] Product ${productId} failed:`, err.message);
       }
     }
 
@@ -75,6 +79,9 @@ export async function POST(request: Request) {
       processedProductIds: processed,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Video generation failed' }, { status: 500 });
+    return NextResponse.json({
+      success: false,
+      error: err.message || 'Video generation failed',
+    }, { status: 200 });
   }
 }
