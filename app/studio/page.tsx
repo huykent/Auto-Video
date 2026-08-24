@@ -63,7 +63,7 @@ export default function StudioPage() {
       }
     } catch (err) {
       console.error('Failed to fetch products for studio:', err);
-    } finally {
+    } fontally {
       setLoading(false);
     }
   };
@@ -135,6 +135,14 @@ export default function StudioPage() {
       } catch (e) {}
     }
     return 0;
+  };
+
+  const getVideoUrl = (prod: ProductItem) => {
+    if (!prod.generatedVideoPath) return null;
+    if (prod.generatedVideoPath.startsWith('/api/video/file')) {
+      return prod.generatedVideoPath;
+    }
+    return `/api/video/file?productId=${prod.id}`;
   };
 
   return (
@@ -242,6 +250,7 @@ export default function StudioPage() {
                 const coverImg = getProductCoverImage(prod);
                 const isSelected = selectedProdIds.includes(prod.id);
                 const photosCount = getProductPhotosCount(prod);
+                const videoUrl = getVideoUrl(prod);
 
                 return (
                   <div
@@ -278,9 +287,9 @@ export default function StudioPage() {
 
                     {/* Preview Image & Video Container */}
                     <div className="aspect-video bg-slate-950 rounded-xl overflow-hidden border border-cyan-500/20 relative flex items-center justify-center">
-                      {prod.generatedVideoPath ? (
+                      {videoUrl ? (
                         <video
-                          src={prod.generatedVideoPath}
+                          src={videoUrl}
                           controls
                           className="w-full h-full object-cover"
                         />

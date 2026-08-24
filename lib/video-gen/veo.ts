@@ -23,25 +23,26 @@ export async function generateVeoVideo(
   }
 
   const targetVideoPath = path.join(videoDir, `${productId}.mp4`);
+  const publicVideoUrl = `/api/video/file?productId=${productId}`;
 
   if (isMock) {
     // Generate a dummy valid MP4 placeholder file for test & mock mode
     fs.writeFileSync(targetVideoPath, Buffer.from('FAKE_VEO_MP4_VIDEO_CONTENT'), 'utf-8');
 
-    // Update database status
+    // Update database status with public HTTP video route URL
     const now = new Date().toISOString();
     await db
       .update(products)
       .set({
         status: 'VIDEO_READY',
         videoPrompt: prompt,
-        generatedVideoPath: targetVideoPath,
+        generatedVideoPath: publicVideoUrl,
         updatedAt: now,
       })
       .where(eq(products.id, productId));
 
     return {
-      videoPath: targetVideoPath,
+      videoPath: publicVideoUrl,
       jobId: `veo-mock-${Date.now()}`,
     };
   }
@@ -86,13 +87,13 @@ export async function generateVeoVideo(
     .set({
       status: 'VIDEO_READY',
       videoPrompt: prompt,
-      generatedVideoPath: targetVideoPath,
+      generatedVideoPath: publicVideoUrl,
       updatedAt: now,
     })
     .where(eq(products.id, productId));
 
   return {
-    videoPath: targetVideoPath,
+    videoPath: publicVideoUrl,
     jobId: data.job_id || `veo-${Date.now()}`,
   };
 }
