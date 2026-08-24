@@ -14,6 +14,69 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
     return { success: false, error: 'Email và Mật khẩu MakerWorld không được để trống.' };
   }
 
+  // Strategy 1: Direct Bambu Lab REST Login API (Bambuddy Method - Fast & No Cloudflare Turnstile Block)
+  try {
+    console.log(`[Bambu REST Login API] Attempting login for ${email}...`);
+    const apiUrl = 'https://api.bambulab.com/v1/user-service/user/login';
+    const payload: Record<string, string> = {
+      account: email,
+      password: password,
+    };
+    if (verificationCode) {
+      payload.verifyCode = verificationCode;
+      payload.code = verificationCode;
+    }
+
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Origin': 'https://makerworld.com',
+        'Referer': 'https://makerworld.com/'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (res.ok && json) {
+      const token = json.token || json.accessToken || json.data?.token || json.jwt;
+      if (token) {
+        const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        console.log('[Bambu REST Login API] Login successful! Extracted Auth Token.');
+        await updateSystemSettings({
+          makerworld_email: email,
+          makerworld_password: password,
+          makerworld_token: authHeader,
+        });
+        return {
+          success: true,
+          token: authHeader,
+        };
+      }
+    }
+
+    if (json) {
+      const errorMsg = (json.error || json.message || '').toLowerCase();
+      if (errorMsg.includes('verification') || errorMsg.includes('code') || errorMsg.includes('mfa') || errorMsg.includes('2fa') || json.code === 1002) {
+        return {
+          success: false,
+          requiresVerificationCode: true,
+          error: 'MakerWorld yêu cầu nhập Mã Xác Thực 2FA (Verification Code) từ Email của bạn.',
+        };
+      } else if (json.error || json.message) {
+        return {
+          success: false,
+          error: `Đăng nhập thất bại: ${json.error || json.message}`,
+        };
+      }
+    }
+  } catch (err: any) {
+    console.error('[Bambu REST Login API Error]:', err);
+  }
+
+  // Strategy 2: Fallback Playwright Headless Browser Login
   const browser = await chromium.launch({
     headless: true,
     args: [
@@ -32,7 +95,6 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
   const page = await context.newPage();
   let extractedToken = '';
 
-  // Intercept authentication API response to capture JWT token
   page.on('response', async (res) => {
     const url = res.url();
     if (url.includes('/api/v1/user-service') || url.includes('/login') || url.includes('/token') || url.includes('/verify')) {
@@ -50,30 +112,26 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
           extractedToken = json.data.token;
         }
       } catch (e) {
-        // Ignore non-json responses
+        // Ignore
       }
     }
   });
 
   try {
-    console.log(`[Auto-Login Engine] Attempting login for ${email}...`);
+    console.log(`[Playwright Login Engine] Fallback navigating for ${email}...`);
     await page.goto('https://makerworld.com/en/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
 
-    // Fill Email / Account input
-    const emailSelector = 'input[type="email"], input[name="email"], input[placeholder*="email" i]';
+    const emailSelector = 'input[type="email"], input[name="email"], input[placeholder*="email" i], input[name="account"]';
     await page.waitForSelector(emailSelector, { timeout: 10000 });
     await page.fill(emailSelector, email);
 
-    // Fill Password input
     const passwordSelector = 'input[type="password"], input[name="password"]';
     await page.fill(passwordSelector, password);
 
-    // Click Submit / Login button
     const submitSelector = 'button[type="submit"], button:has-text("Sign in"), button:has-text("Log in")';
     await page.click(submitSelector);
 
-    // Wait 3s to inspect if a 2FA Verification Code input appears
     await page.waitForTimeout(3000);
 
     const codeInputSelector = 'input[placeholder*="code" i], input[placeholder*="verification" i], input[name*="code" i]';
@@ -81,7 +139,6 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
 
     if (isCodeInputVisible || (await page.content()).includes('verification code')) {
       if (verificationCode) {
-        console.log(`[Auto-Login Engine] Submitting 2FA Verification Code ${verificationCode}...`);
         await page.fill(codeInputSelector, verificationCode);
         const confirmBtn = 'button:has-text("Verify"), button:has-text("Confirm"), button[type="submit"]';
         await page.click(confirmBtn);
@@ -96,12 +153,10 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
       }
     }
 
-    // Extract browser cookies
     const cookies = await context.cookies();
     const cookieHeaderString = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 
     if (extractedToken || cookieHeaderString) {
-      console.log('[Auto-Login Engine] Login successful! Saving auth settings...');
       await updateSystemSettings({
         makerworld_email: email,
         makerworld_password: password,
@@ -119,11 +174,11 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
       await browser.close();
       return {
         success: false,
-        error: 'Không tìm thấy Auth Token sau khi đăng nhập. Vui lòng kiểm tra lại Email/Mật khẩu hoặc thử lại.',
+        error: 'Không tìm thấy Auth Token sau khi đăng nhập. Vui lòng kiểm tra lại Email/Mật khẩu.',
       };
     }
   } catch (err: any) {
-    console.error('[Auto-Login Engine Error]:', err);
+    console.error('[Playwright Login Engine Error]:', err);
     await browser.close().catch(() => {});
     return {
       success: false,
