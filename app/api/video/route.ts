@@ -9,28 +9,60 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const productId = formData.get('productId') as string;
-    const coverImage = formData.get('coverImage') as string;
+    let productIdList: string[] = [];
+    let coverImage = '';
 
-    if (!productId) {
-      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
+    const contentType = request.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      if (Array.isArray(body.productIds)) {
+        productIdList = body.productIds;
+      } else if (body.productId) {
+        productIdList = [body.productId];
+      }
+      if (body.coverImage) coverImage = body.coverImage;
+    } else {
+      const formData = await request.formData();
+      const pId = formData.get('productId') as string;
+      const pIds = formData.get('productIds') as string;
+      if (pIds) {
+        productIdList = pIds.split(',').map((s: string) => s.trim()).filter(Boolean);
+      } else if (pId) {
+        productIdList = [pId];
+      }
+      coverImage = (formData.get('coverImage') as string) || '';
     }
 
-    const item = await db.select().from(products).where(eq(products.id, productId));
-    if (item.length === 0) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    if (productIdList.length === 0) {
+      return NextResponse.json({ error: 'At least one Product ID is required' }, { status: 400 });
     }
 
-    const prod = item[0];
-    const types = JSON.parse(prod.filamentTypes || '[]');
-    const colors = JSON.parse(prod.filamentColors || '[]');
-    const prompt = buildVideoPrompt(prod.title, types, colors);
+    const processed = [];
+    for (const productId of productIdList) {
+      const item = await db.select().from(products).where(eq(products.id, productId));
+      if (item.length > 0) {
+        const prod = item[0];
+        const types = JSON.parse(prod.filamentTypes || '[]');
+        const colors = JSON.parse(prod.filamentColors || '[]');
+        const prompt = buildVideoPrompt(prod.title, types, colors);
 
-    // Call Veo 3 Video AI Generator (Mock / Live mode)
-    await generateVeoVideo(productId, coverImage || '', prompt, { mock: true });
+        const imgToUse = coverImage || prod.selectedCoverImage || '';
 
-    return NextResponse.redirect(new URL('/studio', request.url));
+        // Call Veo 3 Video AI Generator (Mock / Live mode)
+        await generateVeoVideo(productId, imgToUse, prompt, { mock: true });
+        processed.push(productId);
+      }
+    }
+
+    if (!contentType.includes('application/json')) {
+      return NextResponse.redirect(new URL('/studio', request.url));
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Đã khởi tạo tiến trình sinh Video AI cho ${processed.length} mẫu thành công!`,
+      processedProductIds: processed,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Video generation failed' }, { status: 500 });
   }
