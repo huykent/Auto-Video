@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import UnifiedNavbar from '../../components/Navbar';
 import { 
   PackageCheck, 
   Download, 
@@ -17,7 +18,8 @@ import {
   Search, 
   FileText,
   Boxes,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 
 interface ProductItem {
@@ -114,36 +116,8 @@ export default function ExportsPage() {
   return (
     <div className="min-h-screen bg-[#06080F] text-slate-100 font-sans selection:bg-emerald-500/30 pb-20">
       
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-50 border-b border-emerald-500/15 bg-[#06080F]/85 backdrop-blur-2xl px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <a href="/studio" className="p-2 rounded-xl bg-slate-900 border border-emerald-500/20 text-slate-400 hover:text-white hover:border-emerald-400 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </a>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-400 via-teal-500 to-cyan-600 p-[1px]">
-                <div className="w-full h-full bg-[#06080F] rounded-[7px] flex items-center justify-center">
-                  <PackageCheck className="w-4 h-4 text-emerald-400" />
-                </div>
-              </div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Gói Bài Đăng Đã Xuất (Shopee & TikTok Shop)</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <a href="/discovery" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-              Quản Lý Mẫu 3D
-            </a>
-            <a href="/studio" className="text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
-              AI Studio
-            </a>
-            <a href="/settings" className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1.5">
-              <Sliders className="w-4 h-4" /> API Settings
-            </a>
-          </div>
-        </div>
-      </header>
+      {/* Unified Top Navigation */}
+      <UnifiedNavbar />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">

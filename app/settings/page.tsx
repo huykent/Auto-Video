@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import UnifiedNavbar from '../../components/Navbar';
 import { 
   Sparkles, 
   Key, 
@@ -18,7 +19,9 @@ import {
   RefreshCw,
   Mail,
   Lock,
-  ShieldAlert
+  ShieldAlert,
+  HelpCircle,
+  Copy
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -37,6 +40,7 @@ export default function SettingsPage() {
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showMwToken, setShowMwToken] = useState(false);
   const [showMwPass, setShowMwPass] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -107,7 +111,7 @@ export default function SettingsPage() {
     }
 
     setLoggingIn(true);
-    setToastMessage(requiresCode ? '⏳ Đang gửi Mã Xác Thực 2FA tới MakerWorld...' : '⏳ Đang khởi chạy Playwright ngầm để Đăng nhập MakerWorld...');
+    setToastMessage(requiresCode ? '⏳ Đang gửi Mã Xác Thực 2FA tới MakerWorld...' : '⏳ Đang kết nối tới MakerWorld Login Engine...');
 
     try {
       const res = await fetch('/api/settings/autologin', {
@@ -131,7 +135,8 @@ export default function SettingsPage() {
         setRequiresCode(true);
         setToastMessage('📩 MakerWorld đã gửi Mã Xác Thực (Verification Code) về Email của bạn. Hãy điền mã vào ô bên dưới và bấm nút Xác Thực!');
       } else {
-        setToastMessage(`❌ Đăng nhập thất bại: ${data.error || 'Có lỗi xảy ra.'}`);
+        setToastMessage(`⚠️ Cloudflare Turnstile đang chặn trình duyệt tự động ngầm ("Just a moment..."). Bạn hãy sao chép Token/Cookie từ Chrome theo Hướng Dẫn bên dưới.`);
+        setShowGuide(true);
       }
     } catch (err: any) {
       setToastMessage(`❌ Lỗi kết nối đăng nhập: ${err.message}`);
@@ -141,36 +146,16 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#06080F] text-slate-100 font-sans selection:bg-cyan-500/30">
+    <div className="min-h-screen bg-[#06080F] text-slate-100 font-sans selection:bg-cyan-500/30 pb-20">
       
-      {/* Top Navigation */}
-      <header className="sticky top-0 z-50 border-b border-cyan-500/15 bg-[#06080F]/80 backdrop-blur-2xl px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <a href="/" className="p-2 rounded-xl bg-slate-900 border border-cyan-500/20 text-slate-400 hover:text-white hover:border-cyan-400 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </a>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-600 p-[1px]">
-                <div className="w-full h-full bg-[#06080F] rounded-[7px] flex items-center justify-center">
-                  <Sliders className="w-4 h-4 text-cyan-400" />
-                </div>
-              </div>
-              <h1 className="text-xl font-bold text-white tracking-tight">System Settings & API Manager</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-full border border-cyan-500/30">
-            <Server className="w-3.5 h-3.5" /> 192.168.11.11 // PORT 3008
-          </div>
-        </div>
-      </header>
+      {/* Unified Navigation Header */}
+      <UnifiedNavbar />
 
       {/* Main Container */}
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
         
         {toastMessage && (
-          <div className={`p-4 rounded-xl text-sm font-medium border backdrop-blur-xl ${toastMessage.includes('✅') || toastMessage.includes('🎉') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : toastMessage.includes('⏳') || toastMessage.includes('📩') ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 animate-pulse' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+          <div className={`p-4 rounded-xl text-sm font-medium border backdrop-blur-xl ${toastMessage.includes('✅') || toastMessage.includes('🎉') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : toastMessage.includes('⏳') || toastMessage.includes('📩') ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 animate-pulse' : toastMessage.includes('⚠️') ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
             {toastMessage}
           </div>
         )}
@@ -224,7 +209,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Card 2: MakerWorld Account Auth & Auto-Login Engine with 2FA Support */}
+            {/* Card 2: MakerWorld Account Auth & Auto-Login Engine */}
             <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-5 shadow-[0_0_30px_rgba(6,182,212,0.1)]">
               <div className="flex items-center justify-between pb-4 border-b border-cyan-500/15">
                 <div className="flex items-center gap-3">
@@ -232,13 +217,37 @@ export default function SettingsPage() {
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">MakerWorld Cloudflare Authentication (2FA Email Code Engine)</h3>
-                    <p className="text-xs text-slate-400">Tự động đăng nhập ngầm & nhập mã 2FA từ Email để bóc tách Cookie bypass 100% Cloudflare</p>
+                    <h3 className="text-lg font-bold text-white">MakerWorld Auth Token & Cookie (Bambuddy Strategy)</h3>
+                    <p className="text-xs text-slate-400">Nhập Token/Cookie hoặc Tự động lấy để cào MakerWorld qua Cloudflare</p>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowGuide(!showGuide)}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 bg-cyan-500/10 px-3 py-1.5 rounded-lg border border-cyan-500/30"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" /> {showGuide ? 'Ẩn Hướng Dẫn' : 'Xem Hướng Dẫn Lấy Token 10s'}
+                </button>
               </div>
 
-              {/* Account Credentials */}
+              {/* Instructions Guide */}
+              {showGuide && (
+                <div className="p-4 rounded-xl bg-slate-950 border border-cyan-500/30 space-y-3 text-xs text-slate-300 font-mono">
+                  <div className="font-bold text-cyan-300 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-cyan-400" /> HƯỚNG DẪN LẤY MAKERWORLD AUTHORIZATION TOKEN TRONG 10 GiÂY:
+                  </div>
+                  <ol className="list-decimal pl-4 space-y-2 leading-relaxed text-slate-300">
+                    <li>Mở trình duyệt Chrome/Edge và truy cập <a href="https://makerworld.com" target="_blank" rel="noreferrer" className="text-cyan-400 underline">makerworld.com</a>, đăng nhập tài khoản của bạn.</li>
+                    <li>Bấm phím <code className="bg-slate-900 px-1.5 py-0.5 rounded text-cyan-300 border border-cyan-500/30">F12</code> $\rightarrow$ Chọn tab <strong className="text-white">Network</strong>.</li>
+                    <li>Bấm vào bất kỳ request nào (VD: <code className="bg-slate-900 px-1.5 py-0.5 rounded text-cyan-300 border border-cyan-500/30">select/design</code> hoặc <code className="bg-slate-900 px-1.5 py-0.5 rounded text-cyan-300 border border-cyan-500/30">user-service</code>).</li>
+                    <li>Tại mục <strong className="text-white">Request Headers</strong>, sao chép giá trị dòng <strong className="text-cyan-400">Authorization</strong> (bắt đầu bằng <code className="text-emerald-400">Bearer eyJ...</code>) hoặc dòng <strong className="text-cyan-400">Cookie</strong>.</li>
+                    <li>Dán giá trị vừa sao chép vào ô bên dưới và bấm nút <strong className="text-emerald-400">Lưu Cấu Hình System Settings</strong>.</li>
+                  </ol>
+                </div>
+              )}
+
+              {/* Account Credentials Form */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-slate-300 flex items-center gap-1.5">
@@ -276,7 +285,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* 2FA Email Code Input Field (Conditional Render) */}
+              {/* 2FA Code Input Field */}
               {requiresCode && (
                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
@@ -310,15 +319,15 @@ export default function SettingsPage() {
                 {/* MakerWorld Token */}
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-emerald-300 flex items-center justify-between">
-                    <span>EXTRACTED AUTHORIZATION BEARER TOKEN:</span>
-                    <span className="text-slate-500 text-[10px]">Tự động điền sau khi bấm đăng nhập</span>
+                    <span>MAKERWORLD AUTHORIZATION BEARER TOKEN:</span>
+                    <span className="text-slate-500 text-[10px]">Nhập thủ công hoặc Tự động điền</span>
                   </label>
                   <div className="relative">
                     <input
                       type={showMwToken ? 'text' : 'password'}
                       value={makerworldToken}
                       onChange={(e) => setMakerworldToken(e.target.value)}
-                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                      placeholder="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6..."
                       className="w-full bg-slate-950 border border-emerald-500/30 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 pr-12"
                     />
                     <button
@@ -334,8 +343,8 @@ export default function SettingsPage() {
                 {/* MakerWorld Cookie */}
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-cyan-300 flex items-center justify-between">
-                    <span>EXTRACTED BROWSER COOKIE:</span>
-                    <span className="text-slate-500 text-[10px]">Tự động điền sau khi bấm đăng nhập</span>
+                    <span>MAKERWORLD BROWSER COOKIE:</span>
+                    <span className="text-slate-500 text-[10px]">Nhập thủ công hoặc Tự động điền</span>
                   </label>
                   <textarea
                     rows={2}

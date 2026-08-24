@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'auto-video-web',
-      script: './node_modules/next/dist/bin/next',
-      args: 'start -p 3008',
+      script: 'npm',
+      args: 'start',
       cwd: '/var/www/Auto-Video',
       env: {
         NODE_ENV: 'production',

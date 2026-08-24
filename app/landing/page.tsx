@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import UnifiedNavbar from '../../components/Navbar';
 import { 
   Sparkles, 
   Play, 
@@ -28,8 +29,6 @@ import {
 export default function LandingPage() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [timelineProgress, setTimelineProgress] = useState(48);
-  const [activeTab, setActiveTab] = useState('shopee');
-  const [selectedFilament, setSelectedFilament] = useState('PLA Silk Gold');
 
   // Animate timeline progress indicator
   useEffect(() => {
@@ -58,43 +57,7 @@ export default function LandingPage() {
       />
 
       {/* Top Holographic Navigation Bar */}
-      <header className="sticky top-0 z-50 border-b border-cyan-500/15 bg-[#06080F]/80 backdrop-blur-2xl">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-purple-600 p-[1px] shadow-[0_0_20px_rgba(6,182,212,0.3)]">
-              <div className="w-full h-full bg-[#06080F] rounded-[11px] flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-cyan-400 animate-pulse" />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                Auto-Video <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono tracking-widest uppercase">Neo-Gravity</span>
-              </span>
-            </div>
-          </div>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
-            <a href="/discovery" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-cyan-400" /> Discovery</a>
-            <a href="/studio" className="hover:text-cyan-400 transition-colors">Studio</a>
-            <a href="/exports" className="hover:text-cyan-400 transition-colors">Exports</a>
-            <a href="/settings" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"><Sliders className="w-3.5 h-3.5 text-purple-400" /> Settings</a>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <a href="/discovery" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-              Dashboard
-            </a>
-            <a 
-              href="/settings" 
-              className="relative group overflow-hidden px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 transition-all duration-300 shadow-[0_0_25px_rgba(6,182,212,0.35)]"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                Settings API <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </span>
-            </a>
-          </div>
-        </div>
-      </header>
+      <UnifiedNavbar />
 
       {/* Hero Section */}
       <section id="hero" className="relative pt-16 pb-28 px-6 max-w-7xl mx-auto text-center space-y-10">

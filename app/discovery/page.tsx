@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import UnifiedNavbar from '../../components/Navbar';
 import { 
   Sparkles, 
   Search, 
@@ -281,33 +282,8 @@ export default function DiscoveryPage() {
   return (
     <div className="min-h-screen bg-[#06080F] text-slate-100 font-sans selection:bg-cyan-500/30 pb-24">
       
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-50 border-b border-cyan-500/15 bg-[#06080F]/80 backdrop-blur-2xl px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <a href="/" className="p-2 rounded-xl bg-slate-900 border border-cyan-500/20 text-slate-400 hover:text-white hover:border-cyan-400 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </a>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-400 via-indigo-500 to-purple-600 p-[1px]">
-                <div className="w-full h-full bg-[#06080F] rounded-[7px] flex items-center justify-center">
-                  <Search className="w-4 h-4 text-cyan-400" />
-                </div>
-              </div>
-              <h1 className="text-xl font-bold text-white tracking-tight">MakerWorld Model Ingestion & Discovery</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <a href="/studio" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-              Studio
-            </a>
-            <a href="/settings" className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1.5">
-              <Sliders className="w-4 h-4" /> API Settings
-            </a>
-          </div>
-        </div>
-      </header>
+      {/* Unified Top Navigation */}
+      <UnifiedNavbar />
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-6 py-10 space-y-10">
@@ -420,7 +396,7 @@ export default function DiscoveryPage() {
           </form>
         </div>
 
-        {/* Section 3: Real-time Search Jobs Table with CLEAR LOGS Button */}
+        {/* Section 3: Real-time Search Jobs Table */}
         <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-cyan-500/15">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -481,7 +457,7 @@ export default function DiscoveryPage() {
           </div>
         </div>
 
-        {/* Section 4: Crawled Product Showcase Grid with MULTI-SELECT CHECKBOXES */}
+        {/* Section 4: Crawled Product Showcase Grid */}
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-[#090D1A] border border-cyan-500/20 rounded-2xl p-4">
             <div className="flex items-center gap-3">
