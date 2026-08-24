@@ -26,7 +26,9 @@ import {
   X,
   Check,
   Star,
-  Film
+  Film,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 interface SearchJobItem {
@@ -62,6 +64,9 @@ export default function DiscoveryPage() {
   const [jobs, setJobs] = useState<SearchJobItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Model selection state for Video Export
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   // Gallery Modal State
   const [activeGalleryProd, setActiveGalleryProd] = useState<ProductItem | null>(null);
@@ -100,6 +105,22 @@ export default function DiscoveryPage() {
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const toggleSelectProduct = (prodId: string) => {
+    if (selectedProductIds.includes(prodId)) {
+      setSelectedProductIds(selectedProductIds.filter(id => id !== prodId));
+    } else {
+      setSelectedProductIds([...selectedProductIds, prodId]);
+    }
+  };
+
+  const selectAllProducts = () => {
+    setSelectedProductIds(products.map(p => p.id));
+  };
+
+  const deselectAllProducts = () => {
+    setSelectedProductIds([]);
+  };
 
   const handleIngestUrl = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,7 +214,7 @@ export default function DiscoveryPage() {
     const list = getProductPhotosList(prod);
     setActiveGalleryProd(prod);
     setGalleryImages(list);
-    setSelectedPhotos(list); // Default: all selected
+    setSelectedPhotos(list);
     setActiveCover(getProductCoverImage(prod));
     setGalleryMsg('');
   };
@@ -252,8 +273,13 @@ export default function DiscoveryPage() {
     }
   };
 
+  const goToStudioWithSelected = () => {
+    if (selectedProductIds.length === 0) return;
+    window.location.href = `/studio?products=${selectedProductIds.join(',')}`;
+  };
+
   return (
-    <div className="min-h-screen bg-[#06080F] text-slate-100 font-sans selection:bg-cyan-500/30">
+    <div className="min-h-screen bg-[#06080F] text-slate-100 font-sans selection:bg-cyan-500/30 pb-24">
       
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 border-b border-cyan-500/15 bg-[#06080F]/80 backdrop-blur-2xl px-6 py-4">
@@ -455,15 +481,43 @@ export default function DiscoveryPage() {
           </div>
         </div>
 
-        {/* Section 4: Crawled Product Showcase Grid with GALLERY BUTTON */}
+        {/* Section 4: Crawled Product Showcase Grid with MULTI-SELECT CHECKBOXES */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Boxes className="w-5 h-5 text-cyan-400" /> Danh Sách Mẫu 3D Đã Sẵn Sàng Cho AI Dựng Video ({products.length})
-            </h3>
-            <a href="/studio" className="text-xs font-semibold text-cyan-400 hover:underline flex items-center gap-1">
-              Sang Studio Dựng Video <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+          <div className="flex items-center justify-between bg-[#090D1A] border border-cyan-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Boxes className="w-5 h-5 text-cyan-400" /> Danh Sách Mẫu 3D ({products.length})
+              </h3>
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold text-cyan-300 bg-cyan-500/15 border border-cyan-500/30">
+                Đã chọn: {selectedProductIds.length} / {products.length} mẫu
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={selectAllProducts}
+                className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all"
+              >
+                Chọn Tất Cả ({products.length})
+              </button>
+              <button
+                type="button"
+                onClick={deselectAllProducts}
+                className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-400 bg-slate-900 border border-slate-700 hover:text-white transition-all"
+              >
+                Bỏ Chọn Hết
+              </button>
+              
+              <button
+                type="button"
+                onClick={goToStudioWithSelected}
+                disabled={selectedProductIds.length === 0}
+                className="py-2 px-5 rounded-xl font-bold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] text-xs flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <Film className="w-4 h-4" /> Sang Studio Dựng Video ({selectedProductIds.length})
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -476,8 +530,15 @@ export default function DiscoveryPage() {
               products.map((prod) => {
                 const coverImg = getProductCoverImage(prod);
                 const photosList = getProductPhotosList(prod);
+                const isSelectedForVideo = selectedProductIds.includes(prod.id);
+
                 return (
-                  <div key={prod.id} className="bg-[#090D1A] border border-cyan-500/25 rounded-2xl p-5 space-y-4 hover:border-cyan-400/50 transition-all backdrop-blur-xl group">
+                  <div 
+                    key={prod.id} 
+                    className={`bg-[#090D1A] border rounded-2xl p-5 space-y-4 hover:border-cyan-400/50 transition-all backdrop-blur-xl group relative ${
+                      isSelectedForVideo ? 'border-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.25)] ring-2 ring-cyan-500/30' : 'border-cyan-500/25'
+                    }`}
+                  >
                     <div className="aspect-video bg-slate-950 rounded-xl overflow-hidden border border-cyan-500/20 relative flex items-center justify-center">
                       {coverImg ? (
                         <img 
@@ -488,9 +549,27 @@ export default function DiscoveryPage() {
                       ) : (
                         <Boxes className="w-10 h-10 text-cyan-500/40 group-hover:scale-110 transition-transform" />
                       )}
-                      
-                      {/* INTERACTIVE GALLERY BADGE BUTTON */}
+
+                      {/* MODEL SELECTION CHECKBOX (TOP LEFT) */}
                       <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSelectProduct(prod.id);
+                        }}
+                        className={`absolute top-2.5 left-2.5 p-2 rounded-xl backdrop-blur-md border transition-all flex items-center gap-1.5 text-xs font-mono font-bold ${
+                          isSelectedForVideo 
+                            ? 'bg-cyan-500 text-white border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.6)]' 
+                            : 'bg-slate-950/80 text-slate-400 border-slate-700 hover:text-white hover:border-cyan-400'
+                        }`}
+                      >
+                        {isSelectedForVideo ? <CheckSquare className="w-4 h-4 text-white" /> : <Square className="w-4 h-4 text-slate-400" />}
+                        <span>{isSelectedForVideo ? 'Đã chọn' : 'Chọn mẫu này'}</span>
+                      </button>
+                      
+                      {/* INTERACTIVE GALLERY BADGE BUTTON (TOP RIGHT) */}
+                      <button
+                        type="button"
                         onClick={() => openGalleryModal(prod)}
                         className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-full bg-slate-950/85 hover:bg-cyan-500 border border-cyan-500/40 hover:border-cyan-300 text-xs font-mono text-cyan-300 hover:text-white backdrop-blur-md flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]"
                         title="Bấm để xem & chọn ảnh làm Video"
@@ -510,6 +589,7 @@ export default function DiscoveryPage() {
 
                     <div className="flex items-center justify-between pt-2 border-t border-cyan-500/15">
                       <button
+                        type="button"
                         onClick={() => openGalleryModal(prod)}
                         className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/30 transition-all flex items-center gap-1"
                       >
@@ -522,8 +602,11 @@ export default function DiscoveryPage() {
                             <ExternalLink className="w-3 h-3" /> Link Gốc
                           </a>
                         )}
-                        <a href={`/studio?product=${prod.id}`} className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-                          Tạo Video <ArrowRight className="w-3 h-3" />
+                        <a 
+                          href={`/studio?product=${prod.id}`} 
+                          className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30"
+                        >
+                          Tạo Video Mẫu Này <ArrowRight className="w-3 h-3" />
                         </a>
                       </div>
                     </div>
@@ -613,7 +696,7 @@ export default function DiscoveryPage() {
 
                       {/* Selection Badge Overlay */}
                       <div className={`absolute top-2 left-2 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
-                        isSelected ? 'bg-cyan-500 text-white font-bold shadow-md' : 'bg-slate-900/80 border border-slate-700 text-slate-500'
+                        isSelected ? 'bg-cyan-500 text-white font-bold shadow-md' : 'bg-slate-950/80 border border-slate-700 text-slate-500'
                       }`}>
                         {isSelected ? <Check className="w-4 h-4 stroke-[3]" /> : null}
                       </div>
@@ -673,7 +756,7 @@ export default function DiscoveryPage() {
                   className="py-2.5 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] text-xs flex items-center gap-2 disabled:opacity-50"
                 >
                   <Film className="w-4 h-4" />
-                  Sang Studio Dựng Video Ngay
+                  Sang Studio Dựng Video Mẫu Này
                 </button>
               </div>
             </div>
