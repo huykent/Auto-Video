@@ -21,9 +21,12 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
       account: email.trim(),
       password: password.trim(),
     };
-    if (verificationCode) {
-      payload.verifyCode = verificationCode.trim();
-      payload.code = verificationCode.trim();
+    
+    if (verificationCode && verificationCode.trim().length > 0) {
+      const code = verificationCode.trim();
+      payload.verifyCode = code;
+      payload.code = code;
+      payload.tfaCode = code;
     }
 
     const res = await fetch(apiUrl, {
@@ -41,8 +44,10 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
     const json = await res.json().catch(() => null);
 
     if (res.ok && json) {
-      const token = json.token || json.accessToken || json.data?.token || json.jwt;
-      if (token) {
+      const token = json.accessToken || json.token || json.jwt || json.data?.token;
+
+      // If token exists, login is completely successful!
+      if (token && token.length > 10) {
         const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
         console.log('[Bambu REST Login API] Login successful! Saved Auth Token.');
         await updateSystemSettings({
@@ -55,6 +60,16 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
           token: authHeader,
         };
       }
+
+      // If loginType is verifyCode or token is empty, 2FA code is sent to email!
+      if (json.loginType === 'verifyCode' || !token) {
+        console.log('[Bambu REST Login API] 2FA Email Code required for user.');
+        return {
+          success: false,
+          requiresVerificationCode: true,
+          error: `Mã Xác Thực (Verification Code) đã được gửi về Email ${email} của bạn. Hãy điền mã vào ô bên dưới và bấm nút Gửi Mã Xác Thực!`,
+        };
+      }
     }
 
     if (json) {
@@ -65,9 +80,15 @@ export async function autoLoginMakerWorld(email?: string, password?: string, ver
         return {
           success: false,
           requiresVerificationCode: true,
-          error: 'MakerWorld yêu cầu nhập Mã Xác Thực 2FA (Verification Code) từ Email của bạn.',
+          error: `Mã Xác Thực (Verification Code) đã được gửi về Email ${email} của bạn. Hãy điền mã vào ô bên dưới và bấm nút Gửi Mã Xác Thực!`,
         };
-      } else if (errorMsg.includes('incorrect') || errorMsg.includes('account') || errorMsg.includes('password') || code === 1 || code === 2) {
+      } else if (errorMsg.includes('incorrect code') || errorMsg.includes('invalid code') || code === 2) {
+        return {
+          success: false,
+          requiresVerificationCode: true,
+          error: 'Mã xác thực Email không chính xác. Vui lòng kiểm tra lại mã 6 chữ số trong Email.',
+        };
+      } else if (errorMsg.includes('incorrect') || errorMsg.includes('account') || errorMsg.includes('password') || code === 1) {
         return {
           success: false,
           error: 'Mật khẩu hoặc Email MakerWorld/Bambu Lab không chính xác. Vui lòng kiểm tra lại.',
