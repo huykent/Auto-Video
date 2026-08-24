@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Auto-Video MakerWorld Bridge</title>
+  <style>
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #06080F;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+      padding-bottom: 10px;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .badge {
+      font-size: 10px;
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 2px 6px;
+      border-radius: 99px;
+      font-family: monospace;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    label {
+      font-size: 11px;
+      color: #94a3b8;
+      display: block;
+      margin-bottom: 4px;
+      font-family: monospace;
+    }
+    input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: monospace;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      background: linear-gradient(135deg, #06b6d4, #6366f1);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .status {
+      font-size: 11px;
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 6px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      font-family: monospace;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">Auto-Video Scraper Bridge</div>
+    <div class="badge">V1.0</div>
+  </div>
+
+  <div class="form-group">
+    <label>MÁY CHỦ AUTO-VIDEO URL:</label>
+    <input type="text" id="serverUrl" value="http://192.168.11.11:3008" />
+  </div>
+
+  <button id="saveBtn">Lưu Cấu Hình & Kết Nối</button>
+
+  <div class="status" id="statusMsg">🔴 Đang kiểm tra kết nối máy chủ...</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

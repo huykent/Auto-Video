@@ -17,7 +17,10 @@ import {
   Eye,
   Sliders,
   ArrowLeft,
-  ExternalLink
+  ExternalLink,
+  Download,
+  Puzzle,
+  HelpCircle
 } from 'lucide-react';
 
 interface SearchJobItem {
@@ -46,6 +49,7 @@ export default function DiscoveryPage() {
   const [keywordInput, setKeywordInput] = useState('');
   const [maxResults, setMaxResults] = useState('10');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showExtGuide, setShowExtGuide] = useState(false);
   
   const [jobs, setJobs] = useState<SearchJobItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -170,10 +174,43 @@ export default function DiscoveryPage() {
                 <p className="text-xs text-slate-400">Nhập 1 hoặc nhiều từ khóa (phân cách bằng dấu phẩy) để cào thông tin mẫu 3D & nhựa in</p>
               </div>
             </div>
-            <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/30">
-              BAMBU API WORKER READY
-            </span>
+
+            <div className="flex items-center gap-3">
+              <a
+                href="/extension.zip"
+                download="extension.zip"
+                className="px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+              >
+                <Download className="w-3.5 h-3.5" /> Tải Chrome Extension Bridge (.zip)
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setShowExtGuide(!showExtGuide)}
+                className="p-1.5 rounded-xl bg-slate-900 border border-cyan-500/20 text-cyan-400 hover:text-white hover:border-cyan-400 transition-colors"
+                title="Hướng dẫn Cài Đặt Chrome Extension"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+
+          {/* Extension Installation Guide Modal/Card */}
+          {showExtGuide && (
+            <div className="p-5 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-3 text-xs text-slate-300 font-mono">
+              <div className="font-bold text-emerald-300 flex items-center gap-2 text-sm">
+                <Puzzle className="w-4 h-4 text-emerald-400" /> HƯỚNG DẪN CÀI ĐẶT CHROME EXTENSION SCRAPER BRIDGE (100% BYPASS CLOUDFLARE):
+              </div>
+              <ol className="list-decimal pl-4 space-y-2 leading-relaxed text-slate-300">
+                <li>Bấm nút <strong className="text-emerald-400">Tải Chrome Extension Bridge (.zip)</strong> phía trên về máy tính.</li>
+                <li>Giải nén file <code className="bg-slate-900 px-1.5 py-0.5 rounded text-cyan-300">extension.zip</code> ra một thư mục cố định.</li>
+                <li>Mở trình duyệt Chrome, truy cập đường dẫn <code className="bg-slate-900 px-1.5 py-0.5 rounded text-cyan-300">chrome://extensions</code>.</li>
+                <li>Bật công tắc <strong className="text-white">Developer mode (Chế độ nhà phát triển)</strong> ở góc trên bên phải.</li>
+                <li>Bấm nút <strong className="text-white">Load unpacked (Tải tiện ích đã giải nén)</strong> $\rightarrow$ chọn thư mục vừa giải nén.</li>
+                <li>Extension sẽ tự động kết nối tới máy chủ <code className="text-cyan-400">192.168.11.11:3008</code> và thực hiện cào từ khóa trực tiếp trên Chrome của bạn!</li>
+              </ol>
+            </div>
+          )}
 
           <form onSubmit={handleStartCrawl} className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
