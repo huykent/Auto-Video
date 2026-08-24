@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../lib/db';
 import { products } from '../../../lib/db/schema';
-import { desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { fetchRealModelDetails, saveProductToDb } from '../../../lib/crawler/makerworld';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,27 @@ export async function GET() {
   try {
     const list = await db.select().from(products).orderBy(desc(products.createdAt)).limit(50);
     return NextResponse.json(list);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { productId, selectedCoverImage, rawImages } = body;
+
+    if (!productId) {
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
+    }
+
+    const updatePayload: any = { updatedAt: new Date().toISOString() };
+    if (selectedCoverImage !== undefined) updatePayload.selectedCoverImage = selectedCoverImage;
+    if (rawImages !== undefined) updatePayload.rawImages = JSON.stringify(rawImages);
+
+    await db.update(products).set(updatePayload).where(eq(products.id, productId));
+
+    return NextResponse.json({ success: true, message: 'Đã lưu danh sách ảnh được chọn!' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

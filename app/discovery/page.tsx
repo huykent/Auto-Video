@@ -22,7 +22,11 @@ import {
   Link2,
   FileText,
   Image as ImageIcon,
-  Trash2
+  Trash2,
+  X,
+  Check,
+  Star,
+  Film
 } from 'lucide-react';
 
 interface SearchJobItem {
@@ -58,6 +62,14 @@ export default function DiscoveryPage() {
   const [jobs, setJobs] = useState<SearchJobItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Gallery Modal State
+  const [activeGalleryProd, setActiveGalleryProd] = useState<ProductItem | null>(null);
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [activeCover, setActiveCover] = useState<string | null>(null);
+  const [isSavingGallery, setIsSavingGallery] = useState(false);
+  const [galleryMsg, setGalleryMsg] = useState('');
 
   // Fetch search jobs and products
   const fetchData = async () => {
@@ -166,14 +178,78 @@ export default function DiscoveryPage() {
     return null;
   };
 
-  const getProductPhotosCount = (prod: ProductItem) => {
+  const getProductPhotosList = (prod: ProductItem): string[] => {
     if (prod.rawImages) {
       try {
         const parsed = JSON.parse(prod.rawImages);
-        if (Array.isArray(parsed)) return parsed.length;
+        if (Array.isArray(parsed)) return parsed.filter((u: any) => typeof u === 'string' && u.startsWith('http'));
       } catch (e) {}
     }
-    return 1;
+    return [];
+  };
+
+  // Open Gallery Modal for a product
+  const openGalleryModal = (prod: ProductItem) => {
+    const list = getProductPhotosList(prod);
+    setActiveGalleryProd(prod);
+    setGalleryImages(list);
+    setSelectedPhotos(list); // Default: all selected
+    setActiveCover(getProductCoverImage(prod));
+    setGalleryMsg('');
+  };
+
+  const closeGalleryModal = () => {
+    setActiveGalleryProd(null);
+    setGalleryImages([]);
+    setSelectedPhotos([]);
+    setActiveCover(null);
+  };
+
+  const togglePhotoSelection = (imgUrl: string) => {
+    if (selectedPhotos.includes(imgUrl)) {
+      setSelectedPhotos(selectedPhotos.filter((u) => u !== imgUrl));
+    } else {
+      setSelectedPhotos([...selectedPhotos, imgUrl]);
+    }
+  };
+
+  const selectAllPhotos = () => {
+    setSelectedPhotos([...galleryImages]);
+  };
+
+  const deselectAllPhotos = () => {
+    setSelectedPhotos([]);
+  };
+
+  const saveGallerySelection = async (redirectToStudio = false) => {
+    if (!activeGalleryProd) return;
+    setIsSavingGallery(true);
+    setGalleryMsg('');
+
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: activeGalleryProd.id,
+          selectedCoverImage: activeCover,
+          rawImages: selectedPhotos,
+        }),
+      });
+
+      if (res.ok) {
+        setGalleryMsg('Đã lưu danh sách ảnh làm Video thành công!');
+        fetchData();
+
+        if (redirectToStudio) {
+          window.location.href = `/studio?product=${activeGalleryProd.id}`;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save gallery selection:', err);
+    } finally {
+      setIsSavingGallery(false);
+    }
   };
 
   return (
@@ -379,7 +455,7 @@ export default function DiscoveryPage() {
           </div>
         </div>
 
-        {/* Section 4: Crawled Product Showcase Grid */}
+        {/* Section 4: Crawled Product Showcase Grid with GALLERY BUTTON */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -399,7 +475,7 @@ export default function DiscoveryPage() {
             ) : (
               products.map((prod) => {
                 const coverImg = getProductCoverImage(prod);
-                const photoCount = getProductPhotosCount(prod);
+                const photosList = getProductPhotosList(prod);
                 return (
                   <div key={prod.id} className="bg-[#090D1A] border border-cyan-500/25 rounded-2xl p-5 space-y-4 hover:border-cyan-400/50 transition-all backdrop-blur-xl group">
                     <div className="aspect-video bg-slate-950 rounded-xl overflow-hidden border border-cyan-500/20 relative flex items-center justify-center">
@@ -413,9 +489,15 @@ export default function DiscoveryPage() {
                         <Boxes className="w-10 h-10 text-cyan-500/40 group-hover:scale-110 transition-transform" />
                       )}
                       
-                      <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-slate-950/80 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 backdrop-blur-md flex items-center gap-1">
-                        <ImageIcon className="w-3 h-3 text-cyan-400" /> {photoCount} Ảnh 4K
-                      </div>
+                      {/* INTERACTIVE GALLERY BADGE BUTTON */}
+                      <button
+                        onClick={() => openGalleryModal(prod)}
+                        className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-full bg-slate-950/85 hover:bg-cyan-500 border border-cyan-500/40 hover:border-cyan-300 text-xs font-mono text-cyan-300 hover:text-white backdrop-blur-md flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                        title="Bấm để xem & chọn ảnh làm Video"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
+                        <span className="font-bold">{photosList.length} Ảnh 4K</span>
+                      </button>
                     </div>
 
                     <div className="space-y-1">
@@ -427,16 +509,20 @@ export default function DiscoveryPage() {
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-cyan-500/15">
-                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
-                        {prod.status}
-                      </span>
+                      <button
+                        onClick={() => openGalleryModal(prod)}
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/30 transition-all flex items-center gap-1"
+                      >
+                        <ImageIcon className="w-3 h-3" /> Mở Album Ảnh ({photosList.length})
+                      </button>
+
                       <div className="flex items-center gap-3">
                         {prod.url && (
                           <a href={prod.url} target="_blank" rel="noreferrer" className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
                             <ExternalLink className="w-3 h-3" /> Link Gốc
                           </a>
                         )}
-                        <a href="/studio" className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                        <a href={`/studio?product=${prod.id}`} className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
                           Tạo Video <ArrowRight className="w-3 h-3" />
                         </a>
                       </div>
@@ -449,6 +535,152 @@ export default function DiscoveryPage() {
         </div>
 
       </main>
+
+      {/* INTERACTIVE PHOTO GALLERY MODAL */}
+      {activeGalleryProd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-xl animate-fade-in">
+          <div className="bg-[#090D1A] border border-cyan-500/40 rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-[0_0_60px_rgba(6,182,212,0.25)] overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-cyan-500/20 flex items-center justify-between bg-slate-950/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white line-clamp-1">
+                    Bộ Ảnh 4K: {activeGalleryProd.title}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">
+                    Đã chọn: <strong className="text-cyan-400">{selectedPhotos.length}</strong> / {galleryImages.length} ảnh để AI làm Video
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={selectAllPhotos}
+                  className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all"
+                >
+                  Chọn Tất Cả ({galleryImages.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={deselectAllPhotos}
+                  className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-400 bg-slate-900 border border-slate-700 hover:text-white transition-all"
+                >
+                  Bỏ Chọn Hết
+                </button>
+                <button
+                  type="button"
+                  onClick={closeGalleryModal}
+                  className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-white hover:border-cyan-400 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Photo Grid */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4 custom-scrollbar">
+              {galleryMsg && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-mono text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {galleryMsg}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {galleryImages.map((imgUrl, idx) => {
+                  const isSelected = selectedPhotos.includes(imgUrl);
+                  const isCover = activeCover === imgUrl;
+
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => togglePhotoSelection(imgUrl)}
+                      className={`group relative aspect-square rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-200 ${
+                        isSelected 
+                          ? 'border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.4)] ring-2 ring-cyan-500/30' 
+                          : 'border-slate-800 opacity-50 hover:opacity-100 hover:border-slate-600'
+                      }`}
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+
+                      {/* Selection Badge Overlay */}
+                      <div className={`absolute top-2 left-2 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                        isSelected ? 'bg-cyan-500 text-white font-bold shadow-md' : 'bg-slate-900/80 border border-slate-700 text-slate-500'
+                      }`}>
+                        {isSelected ? <Check className="w-4 h-4 stroke-[3]" /> : null}
+                      </div>
+
+                      {/* Cover Image Star Badge */}
+                      {isCover && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-bold text-[10px] flex items-center gap-1 shadow-md font-mono">
+                          <Star className="w-3 h-3 fill-slate-950" /> Ảnh Bìa
+                        </div>
+                      )}
+
+                      {/* Hover Overlay: Set Cover Action */}
+                      <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 gap-1.5">
+                        {!isCover && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveCover(imgUrl);
+                              if (!selectedPhotos.includes(imgUrl)) {
+                                setSelectedPhotos([...selectedPhotos, imgUrl]);
+                              }
+                            }}
+                            className="w-full py-1 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500 border border-amber-500/40 text-amber-300 hover:text-slate-950 text-[10px] font-bold transition-all flex items-center justify-center gap-1 font-mono"
+                          >
+                            <Star className="w-3 h-3" /> Đặt Làm Ảnh Bìa
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="p-6 border-t border-cyan-500/20 bg-slate-950/60 flex items-center justify-between">
+              <div className="text-xs text-slate-400 font-mono">
+                Click vào ảnh để bật/tắt chọn • Bấm <strong className="text-amber-400">Đặt làm ảnh bìa</strong> để chọn ảnh hiển thị chính
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => saveGallerySelection(false)}
+                  disabled={isSavingGallery}
+                  className="py-2.5 px-5 rounded-xl font-bold text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/40 transition-all text-xs flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  {isSavingGallery ? 'Đang lưu...' : 'Lưu Danh Sách Ảnh Đã Chọn'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => saveGallerySelection(true)}
+                  disabled={isSavingGallery}
+                  className="py-2.5 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] text-xs flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Film className="w-4 h-4" />
+                  Sang Studio Dựng Video Ngay
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
