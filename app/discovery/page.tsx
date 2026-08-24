@@ -16,7 +16,8 @@ import {
   Filter,
   Eye,
   Sliders,
-  ArrowLeft
+  ArrowLeft,
+  ExternalLink
 } from 'lucide-react';
 
 interface SearchJobItem {
@@ -38,6 +39,7 @@ interface ProductItem {
   filamentColors: string;
   status: string;
   rawImages: string;
+  selectedCoverImage?: string | null;
 }
 
 export default function DiscoveryPage() {
@@ -106,6 +108,21 @@ export default function DiscoveryPage() {
     }
   };
 
+  const getProductCoverImage = (prod: ProductItem) => {
+    if (prod.selectedCoverImage) return prod.selectedCoverImage;
+    if (prod.rawImages) {
+      try {
+        const parsed = JSON.parse(prod.rawImages);
+        if (Array.isArray(parsed) && parsed[0] && typeof parsed[0] === 'string' && parsed[0].startsWith('http')) {
+          return parsed[0];
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-[#06080F] text-slate-100 font-sans selection:bg-cyan-500/30">
       
@@ -154,7 +171,7 @@ export default function DiscoveryPage() {
               </div>
             </div>
             <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/30">
-              PLAYWRIGHT WORKER READY
+              BAMBU API WORKER READY
             </span>
           </div>
 
@@ -272,25 +289,46 @@ export default function DiscoveryPage() {
                 <p className="text-sm">Chưa có dữ liệu sản phẩm. Hãy khởi chạy Job cào từ khóa!</p>
               </div>
             ) : (
-              products.map((prod) => (
-                <div key={prod.id} className="bg-[#090D1A] border border-cyan-500/25 rounded-2xl p-5 space-y-4 hover:border-cyan-400/50 transition-all backdrop-blur-xl group">
-                  <div className="aspect-video bg-slate-950 rounded-xl overflow-hidden border border-cyan-500/20 relative flex items-center justify-center">
-                    <Boxes className="w-10 h-10 text-cyan-500/40 group-hover:scale-110 transition-transform" />
+              products.map((prod) => {
+                const coverImg = getProductCoverImage(prod);
+                return (
+                  <div key={prod.id} className="bg-[#090D1A] border border-cyan-500/25 rounded-2xl p-5 space-y-4 hover:border-cyan-400/50 transition-all backdrop-blur-xl group">
+                    <div className="aspect-video bg-slate-950 rounded-xl overflow-hidden border border-cyan-500/20 relative flex items-center justify-center">
+                      {coverImg ? (
+                        <img 
+                          src={coverImg} 
+                          alt={prod.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <Boxes className="w-10 h-10 text-cyan-500/40 group-hover:scale-110 transition-transform" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-white text-sm line-clamp-1">{prod.title}</h4>
+                      <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+                        <span>MW ID: {prod.makerworldId}</span>
+                        <span>{prod.author || 'Creator'}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-cyan-500/15">
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
+                        {prod.status}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        {prod.url && (
+                          <a href={prod.url} target="_blank" rel="noreferrer" className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" /> Xem Mẫu
+                          </a>
+                        )}
+                        <a href="/studio" className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                          Tạo Video <ArrowRight className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-white text-sm line-clamp-1">{prod.title}</h4>
-                    <p className="text-xs text-slate-400 font-mono">MW ID: {prod.makerworldId}</p>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-cyan-500/15">
-                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
-                      {prod.status}
-                    </span>
-                    <a href="/studio" className="text-xs font-semibold text-cyan-400 hover:text-cyan-300">
-                      Tạo Video $\rightarrow$
-                    </a>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
