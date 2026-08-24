@@ -68,7 +68,7 @@ export default function StudioPage() {
       }
     } catch (err) {
       console.error('Failed to fetch products for studio:', err);
-    } fontally {
+    } finally {
       setLoading(false);
     }
   };
