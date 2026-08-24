@@ -4,6 +4,7 @@ import { products } from '../../../lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { buildVideoPrompt } from '../../../lib/video-gen/prompt';
 import { generateVeoVideo } from '../../../lib/video-gen/veo';
+import { getSystemSettings } from '../../../lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'At least one Product ID is required' }, { status: 400 });
     }
 
+    const settings = await getSystemSettings();
+    const isMockMode = settings.ai_mode === 'mock';
+
     const processed = [];
     for (const productId of productIdList) {
       const item = await db.select().from(products).where(eq(products.id, productId));
@@ -55,8 +59,8 @@ export async function POST(request: Request) {
 
         const imgToUse = coverImage || prod.selectedCoverImage || '';
 
-        // Call Veo 3 Video AI Generator (Mock / Live mode)
-        await generateVeoVideo(productId, imgToUse, prompt, { mock: true });
+        // Call Veo 3 Video AI Generator (Mock / Live mode from settings)
+        await generateVeoVideo(productId, imgToUse, prompt, { mock: isMockMode });
         processed.push(productId);
       }
     }

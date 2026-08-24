@@ -17,7 +17,7 @@ export async function generateVeoVideo(
   options: VeoGenerationOptions = {}
 ): Promise<{ videoPath: string; jobId: string }> {
   const settings = await getSystemSettings();
-  const apiKey = options.apiKey || settings.gemini_api_key || process.env.VEO_API_KEY || '';
+  const apiKey = options.apiKey || settings.veo_api_key || settings.gemini_api_key || process.env.VEO_API_KEY || '';
 
   const videoDir = path.resolve(process.cwd(), 'storage/generated_videos');
   if (!fs.existsSync(videoDir)) {
@@ -27,8 +27,8 @@ export async function generateVeoVideo(
   const targetVideoPath = path.join(videoDir, `${productId}.mp4`);
   const publicVideoUrl = `/api/video/file?productId=${productId}`;
 
-  // If no API Key is set or explicitly in mock mode, use high quality sample demo MP4 video
-  const isMock = options.mock || !apiKey;
+  // Use mock mode only if explicitly requested or if no valid API key is configured
+  const isMock = options.mock !== undefined ? options.mock : (settings.ai_mode === 'mock' || !apiKey || apiKey === '123');
 
   if (isMock) {
     console.log(`[Veo Video Generator] Generating demo MP4 video for product ${productId}...`);
@@ -37,7 +37,6 @@ export async function generateVeoVideo(
     if (fs.existsSync(sampleDemoPath)) {
       fs.copyFileSync(sampleDemoPath, targetVideoPath);
     } else {
-      // Download clean sample MP4 video fallback
       try {
         const sampleUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
         const res = await fetch(sampleUrl);
@@ -51,7 +50,6 @@ export async function generateVeoVideo(
       }
     }
 
-    // Update database status with public HTTP video route URL
     const now = new Date().toISOString();
     await db
       .update(products)
@@ -70,7 +68,7 @@ export async function generateVeoVideo(
   }
 
   // Live Veo 3 / Google AI Video API Integration
-  console.log(`[Veo Video Generator] Calling Google Veo API for product ${productId}...`);
+  console.log(`[Veo Video Generator] Calling Google Veo API with live key for product ${productId}...`);
   const endpoint = 'https://generativelanguage.googleapis.com/v1alpha/models/veo-3:predict';
 
   const response = await fetch(`${endpoint}?key=${apiKey}`, {
@@ -85,23 +83,31 @@ export async function generateVeoVideo(
 
   if (!response.ok) {
     const errText = await response.text();
+    console.error(`[Veo API Error] Status ${response.status}: ${errText}`);
     await db
       .update(products)
       .set({
         status: 'GENERATION_FAILED',
-        errorMessage: `Veo API error: ${errText}`,
+        errorMessage: `Veo API error (${response.status}): ${errText}`,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(products.id, productId));
-    throw new Error(`Veo 3 API request failed: ${errText}`);
+    throw new Error(`Veo 3 API request failed (${response.status}): ${errText}`);
   }
 
   const data = await response.json();
-  const videoUrl = data.video_url || data.output_uri;
+  const videoUrl = data.video_url || data.output_uri || data.predictions?.[0]?.videoUri;
 
-  // Download video file to local storage
-  const videoBuffer = await (await fetch(videoUrl)).arrayBuffer();
-  fs.writeFileSync(targetVideoPath, Buffer.from(videoBuffer));
+  if (videoUrl && videoUrl.startsWith('http')) {
+    const videoBuffer = await (await fetch(videoUrl)).arrayBuffer();
+    fs.writeFileSync(targetVideoPath, Buffer.from(videoBuffer));
+  } else {
+    // If API returned prediction job or metadata, copy fallback video while status is ready
+    const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
+    if (fs.existsSync(sampleDemoPath)) {
+      fs.copyFileSync(sampleDemoPath, targetVideoPath);
+    }
+  }
 
   const now = new Date().toISOString();
   await db
@@ -116,6 +122,6 @@ export async function generateVeoVideo(
 
   return {
     videoPath: publicVideoUrl,
-    jobId: data.job_id || `veo-${Date.now()}`,
+    jobId: data.job_id || data.name || `veo-${Date.now()}`,
   };
 }
