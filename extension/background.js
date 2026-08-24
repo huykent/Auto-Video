@@ -6,11 +6,19 @@ chrome.storage.local.get(['serverUrl'], (res) => {
   if (res.serverUrl) SERVER_URL = res.serverUrl;
 });
 
-console.log('[Auto-Video Bridge] Background script started. Server:', SERVER_URL);
+// Listen for message from Content Script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'scrapeJob' && message.job) {
+    console.log('[Background] Received scrapeJob from content script:', message.job);
+    executeScrapeJob(message.job).then(() => {
+      sendResponse({ status: 'started' });
+    });
+    return true;
+  }
+});
 
-// Set up polling alarm every 3 seconds
-chrome.alarms.create('pollServer', { periodInMinutes: 0.1 });
-
+// Polling alarm every 3 seconds as fallback
+chrome.alarms.create('pollServer', { periodInMinutes: 0.05 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'pollServer') {
     pollForJobs();
@@ -28,7 +36,7 @@ async function pollForJobs() {
     const data = await res.json();
 
     if (data && data.job) {
-      console.log('[Auto-Video Bridge] Received job to scrape:', data.job);
+      console.log('[Auto-Video Bridge] Received job to scrape via Alarm:', data.job);
       await executeScrapeJob(data.job);
     }
   } catch (err) {

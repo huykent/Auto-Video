@@ -13,6 +13,25 @@ export function startWorker() {
       const { jobId, keyword, maxResults } = job.data;
 
       try {
+        // Wait 15 seconds to let Chrome Extension pick up and process the PENDING job first
+        let extensionHandled = false;
+        for (let i = 0; i < 15; i++) {
+          await new Promise((r) => setTimeout(r, 1000));
+          if (jobId) {
+            const currentJob = await db.select().from(searchJobs).where(eq(searchJobs.id, jobId));
+            if (currentJob.length > 0 && currentJob[0].status === 'COMPLETED') {
+              console.log(`[Crawler Worker] Job ${jobId} was successfully completed by Chrome Extension Bridge!`);
+              extensionHandled = true;
+              break;
+            }
+          }
+        }
+
+        if (extensionHandled) {
+          return { status: 'completed_by_extension', jobId };
+        }
+
+        console.log(`[Crawler Worker] Job ${jobId} fallback to Playwright/Bambu API Engine...`);
         if (jobId) {
           await db.update(searchJobs).set({ status: 'RUNNING' }).where(eq(searchJobs.id, jobId));
         }
