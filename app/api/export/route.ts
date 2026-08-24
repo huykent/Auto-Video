@@ -13,8 +13,9 @@ function getSafeRedirectUrl(request: Request, path: string): string {
 }
 
 export async function POST(request: Request) {
+  let contentType = '';
   try {
-    const contentType = request.headers.get('content-type') || '';
+    contentType = request.headers.get('content-type') || '';
     let productId = '';
 
     if (contentType.includes('application/json')) {
@@ -26,7 +27,10 @@ export async function POST(request: Request) {
     }
 
     if (!productId) {
-      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
+      if (contentType.includes('application/json')) {
+        return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
+      }
+      return NextResponse.redirect(getSafeRedirectUrl(request, '/studio'));
     }
 
     await exportProductPackage(productId);
@@ -37,6 +41,10 @@ export async function POST(request: Request) {
 
     return NextResponse.redirect(getSafeRedirectUrl(request, '/exports'));
   } catch (err: any) {
+    console.error('[Export API Error]:', err.message);
+    if (!contentType.includes('application/json')) {
+      return NextResponse.redirect(getSafeRedirectUrl(request, '/exports'));
+    }
     return NextResponse.json({ error: err.message || 'Export failed' }, { status: 500 });
   }
 }

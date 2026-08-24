@@ -9,13 +9,28 @@ import { generateTikTokMetadata } from './tiktok';
 export async function exportProductPackage(productId: string): Promise<{ exportDir: string; files: string[] }> {
   const result = await db.select().from(products).where(eq(products.id, productId));
   if (result.length === 0) {
-    throw new Error(`Product ${productId} not found in database`);
+    throw new Error(`Mẫu 3D ${productId} không tồn tại trong cơ sở dữ liệu`);
   }
 
   const product = result[0];
-  const types = JSON.parse(product.filamentTypes || '[]');
-  const colors = JSON.parse(product.filamentColors || '[]');
-  const images = JSON.parse(product.rawImages || '[]');
+  let types: string[] = [];
+  let colors: string[] = [];
+  let images: string[] = [];
+
+  try {
+    const parsedTypes = JSON.parse(product.filamentTypes || '[]');
+    if (Array.isArray(parsedTypes)) types = parsedTypes;
+  } catch (e) {}
+
+  try {
+    const parsedColors = JSON.parse(product.filamentColors || '[]');
+    if (Array.isArray(parsedColors)) colors = parsedColors;
+  } catch (e) {}
+
+  try {
+    const parsedImages = JSON.parse(product.rawImages || '[]');
+    if (Array.isArray(parsedImages)) images = parsedImages;
+  } catch (e) {}
 
   const shopeeTitle = generateShopeeTitle(product.title, types, colors);
   const shopeeDesc = generateShopeeDescription(
@@ -45,20 +60,31 @@ export async function exportProductPackage(productId: string): Promise<{ exportD
   fs.writeFileSync(tiktokPath, JSON.stringify(tiktokMeta, null, 2), 'utf-8');
   createdFiles.push(tiktokPath);
 
-  // Copy generated video
-  if (product.generatedVideoPath && fs.existsSync(product.generatedVideoPath)) {
+  // Copy generated video safely
+  const localVideoPath = path.resolve(process.cwd(), 'storage/generated_videos', `${product.id}.mp4`);
+  if (fs.existsSync(localVideoPath)) {
     const destVideo = path.join(exportDir, 'video_product.mp4');
-    fs.copyFileSync(product.generatedVideoPath, destVideo);
+    fs.copyFileSync(localVideoPath, destVideo);
     createdFiles.push(destVideo);
+  } else if (product.generatedVideoPath) {
+    try {
+      if (fs.existsSync(product.generatedVideoPath)) {
+        const destVideo = path.join(exportDir, 'video_product.mp4');
+        fs.copyFileSync(product.generatedVideoPath, destVideo);
+        createdFiles.push(destVideo);
+      }
+    } catch (e) {}
   }
 
-  // Copy images
+  // Copy images safely
   images.forEach((imgFile: string, index: number) => {
-    if (fs.existsSync(imgFile)) {
-      const destImg = path.join(exportDir, `image_${index + 1}.jpg`);
-      fs.copyFileSync(imgFile, destImg);
-      createdFiles.push(destImg);
-    }
+    try {
+      if (typeof imgFile === 'string' && fs.existsSync(imgFile)) {
+        const destImg = path.join(exportDir, `image_${index + 1}.jpg`);
+        fs.copyFileSync(imgFile, destImg);
+        createdFiles.push(destImg);
+      }
+    } catch (e) {}
   });
 
   // Update status to EXPORTED
