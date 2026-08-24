@@ -14,59 +14,68 @@ export const client = createClient({
   url: `file:${dbPath.replace(/\\/g, '/')}`,
 });
 
+let isInitialized = false;
+
 export async function initDb() {
+  if (isInitialized) return;
+  isInitialized = true;
+
   try {
+    await client.execute(`PRAGMA busy_timeout = 10000;`);
     await client.execute(`PRAGMA journal_mode = WAL;`);
-    await client.execute(`PRAGMA busy_timeout = 5000;`);
   } catch (e) {
-    console.warn('Pragma config error:', e);
+    // Ignore concurrent WAL pragma locks across worker processes
   }
 
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS products (
-      id TEXT PRIMARY KEY,
-      makerworld_id TEXT UNIQUE NOT NULL,
-      title TEXT NOT NULL,
-      url TEXT NOT NULL,
-      author TEXT,
-      filament_types TEXT NOT NULL,
-      filament_colors TEXT NOT NULL,
-      print_time_minutes INTEGER,
-      weight_grams REAL,
-      status TEXT NOT NULL DEFAULT 'DISCOVERED',
-      raw_images TEXT NOT NULL,
-      selected_cover_image TEXT,
-      video_prompt TEXT,
-      generated_video_path TEXT,
-      export_title TEXT,
-      export_description TEXT,
-      error_message TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-  `);
+  try {
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        makerworld_id TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        url TEXT NOT NULL,
+        author TEXT,
+        filament_types TEXT NOT NULL,
+        filament_colors TEXT NOT NULL,
+        print_time_minutes INTEGER,
+        weight_grams REAL,
+        status TEXT NOT NULL DEFAULT 'DISCOVERED',
+        raw_images TEXT NOT NULL,
+        selected_cover_image TEXT,
+        video_prompt TEXT,
+        generated_video_path TEXT,
+        export_title TEXT,
+        export_description TEXT,
+        error_message TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
 
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS search_jobs (
-      id TEXT PRIMARY KEY,
-      keyword TEXT NOT NULL,
-      max_results INTEGER NOT NULL DEFAULT 10,
-      status TEXT NOT NULL DEFAULT 'PENDING',
-      items_found INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL
-    );
-  `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS search_jobs (
+        id TEXT PRIMARY KEY,
+        keyword TEXT NOT NULL,
+        max_results INTEGER NOT NULL DEFAULT 10,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        items_found INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+    `);
 
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS system_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-  `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+  } catch (err) {
+    console.error('DB table creation error:', err);
+  }
 }
 
-// Fire initDb asynchronously without top-level await
-initDb().catch((err) => console.error('DB init failed:', err));
+// Fire initDb asynchronously on module load
+initDb().catch(() => {});
 
 export const db = drizzle(client, { schema });
