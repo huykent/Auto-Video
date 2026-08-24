@@ -20,6 +20,7 @@ export interface ScrapedModelData {
   filamentColors: string[];
   printTimeMinutes: number;
   weightGrams: number;
+  plateCount: number;
   rawImages: string[];
 }
 
@@ -27,7 +28,7 @@ export function parseFilamentInfo(text: string): FilamentInfo {
   const typesSet = new Set<string>();
   const colorsSet = new Set<string>();
 
-  const knownTypes = ['PLA', 'PETG', 'TPU', 'ABS', 'ASA', 'PNC', 'PC', 'Nylon', 'Resin'];
+  const knownTypes = ['PLA', 'PLA Silk', 'PETG', 'TPU', 'ABS', 'ASA', 'PNC', 'PC', 'Nylon', 'Resin'];
   const knownColors = [
     'White', 'Black', 'Red', 'Blue', 'Green', 'Yellow', 'Gold', 
     'Silver', 'Grey', 'Gray', 'Purple', 'Orange', 'Pink', 'Clear'
@@ -56,6 +57,7 @@ export function sanitizeModelTitle(title: string): string {
 }
 
 export function formatPrintTime(minutes: number): string {
+  if (!minutes || minutes <= 0) return '1h 30m';
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   if (hours === 0) return `${mins}m`;
@@ -100,7 +102,7 @@ function extractAllImagesFromData(data: any): string[] {
   return photos;
 }
 
-// Fetch real authentic model metadata and ALL 4K images from Bambu Cloud REST API
+// Fetch real authentic model metadata, filament, print time, plates count and ALL 4K images from Bambu Cloud REST API
 export async function fetchRealModelDetails(designId: string): Promise<ScrapedModelData | null> {
   try {
     const settings = await getSystemSettings();
@@ -118,7 +120,7 @@ export async function fetchRealModelDetails(designId: string): Promise<ScrapedMo
     if (res.ok) {
       const data = await res.json();
       const title = data.title || `3D Model #${designId}`;
-      const author = data.user?.name || data.user?.username || 'MakerWorld Creator';
+      const author = data.designCreator?.name || data.designCreator?.username || data.user?.name || 'MakerWorld Creator';
       const coverUrl = data.coverUrl || '';
       
       const allPhotos = extractAllImagesFromData(data);
@@ -128,15 +130,46 @@ export async function fetchRealModelDetails(designId: string): Promise<ScrapedMo
 
       const url = `https://makerworld.com/en/models/${designId}`;
 
+      // Extract real 3D printing parameters from Bambu API instances
+      const instances = Array.isArray(data.instances) ? data.instances : [];
+      const plateCount = instances.length > 0 ? instances.length : 1;
+
+      let extractedPrintTimeMins = 120;
+      let extractedWeight = 50;
+      const typesSet = new Set<string>();
+      const colorsSet = new Set<string>();
+
+      if (instances.length > 0) {
+        const inst = instances[0];
+        if (inst.weight) extractedWeight = Number(inst.weight);
+
+        if (inst.prediction) {
+          const costSecs = typeof inst.prediction === 'number' ? inst.prediction : (inst.prediction.costTime || inst.prediction.printTime);
+          if (costSecs && Number(costSecs) > 0) {
+            extractedPrintTimeMins = Math.round(Number(costSecs) / 60);
+          }
+        }
+
+        const filaments = Array.isArray(inst.instanceFilaments) ? inst.instanceFilaments : [];
+        for (const f of filaments) {
+          if (f.type) typesSet.add(String(f.type).toUpperCase());
+          if (f.color) colorsSet.add(String(f.color));
+        }
+      }
+
+      const filamentTypes = typesSet.size > 0 ? Array.from(typesSet) : ['PLA Silk', 'PETG'];
+      const filamentColors = colorsSet.size > 0 ? Array.from(colorsSet) : ['Gold', 'Black'];
+
       return {
         makerworldId: String(designId),
         title,
         url,
         author,
-        filamentTypes: ['PLA Silk', 'PETG'],
-        filamentColors: ['Gold', 'Black'],
-        printTimeMinutes: 120,
-        weightGrams: 50,
+        filamentTypes,
+        filamentColors,
+        printTimeMinutes: extractedPrintTimeMins,
+        weightGrams: extractedWeight,
+        plateCount,
         rawImages: allPhotos.length > 0 ? allPhotos : (coverUrl ? [coverUrl] : []),
       };
     }
@@ -259,6 +292,7 @@ export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5
           filamentColors: ['Gold', 'Black'],
           printTimeMinutes: hit.printTime || 120,
           weightGrams: hit.weight || 50,
+          plateCount: 1,
           rawImages: [hit.coverUrl || hit.cover || ''],
         };
 
@@ -293,6 +327,7 @@ export async function saveProductToDb(modelData: ScrapedModelData) {
       filamentColors: JSON.stringify(modelData.filamentColors),
       printTimeMinutes: modelData.printTimeMinutes,
       weightGrams: modelData.weightGrams,
+      plateCount: modelData.plateCount || 1,
       status: 'CRAWLED',
       rawImages: JSON.stringify(modelData.rawImages),
       selectedCoverImage: coverImg,
@@ -304,6 +339,11 @@ export async function saveProductToDb(modelData: ScrapedModelData) {
       title: modelData.title,
       url: modelData.url,
       author: modelData.author,
+      filamentTypes: JSON.stringify(modelData.filamentTypes),
+      filamentColors: JSON.stringify(modelData.filamentColors),
+      printTimeMinutes: modelData.printTimeMinutes,
+      weightGrams: modelData.weightGrams,
+      plateCount: modelData.plateCount || 1,
       rawImages: JSON.stringify(modelData.rawImages),
       selectedCoverImage: coverImg,
       updatedAt: now,

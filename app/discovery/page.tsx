@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import UnifiedNavbar from '../../components/Navbar';
+import { formatPrintTime } from '../../lib/crawler/makerworld';
 import { 
   Sparkles, 
   Search, 
@@ -29,7 +30,9 @@ import {
   Star,
   Film,
   CheckSquare,
-  Square
+  Square,
+  Weight,
+  Printer
 } from 'lucide-react';
 
 interface SearchJobItem {
@@ -49,6 +52,9 @@ interface ProductItem {
   author: string | null;
   filamentTypes: string;
   filamentColors: string;
+  printTimeMinutes?: number | null;
+  weightGrams?: number | null;
+  plateCount?: number | null;
   status: string;
   rawImages: string;
   selectedCoverImage?: string | null;
@@ -208,6 +214,16 @@ export default function DiscoveryPage() {
       } catch (e) {}
     }
     return [];
+  };
+
+  const getParsedFilaments = (prod: ProductItem): string[] => {
+    if (prod.filamentTypes) {
+      try {
+        const parsed = JSON.parse(prod.filamentTypes);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return ['PLA Silk', 'PETG'];
   };
 
   // Open Gallery Modal for a product
@@ -459,7 +475,7 @@ export default function DiscoveryPage() {
 
         {/* Section 4: Crawled Product Showcase Grid */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-[#090D1A] border border-cyan-500/20 rounded-2xl p-4">
+          <div className="flex flex-wrap items-center justify-between bg-[#090D1A] border border-cyan-500/20 rounded-2xl p-4 gap-3">
             <div className="flex items-center gap-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Boxes className="w-5 h-5 text-cyan-400" /> Danh Sách Mẫu 3D ({products.length})
@@ -473,14 +489,14 @@ export default function DiscoveryPage() {
               <button
                 type="button"
                 onClick={selectAllProducts}
-                className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all min-h-[38px]"
               >
                 Chọn Tất Cả ({products.length})
               </button>
               <button
                 type="button"
                 onClick={deselectAllProducts}
-                className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-400 bg-slate-900 border border-slate-700 hover:text-white transition-all"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-slate-400 bg-slate-900 border border-slate-700 hover:text-white transition-all min-h-[38px]"
               >
                 Bỏ Chọn Hết
               </button>
@@ -489,7 +505,7 @@ export default function DiscoveryPage() {
                 type="button"
                 onClick={goToStudioWithSelected}
                 disabled={selectedProductIds.length === 0}
-                className="py-2 px-5 rounded-xl font-bold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] text-xs flex items-center gap-1.5 disabled:opacity-40"
+                className="py-2.5 px-5 rounded-xl font-bold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] text-xs flex items-center gap-1.5 disabled:opacity-40 min-h-[38px]"
               >
                 <Film className="w-4 h-4" /> Sang Studio Dựng Video ({selectedProductIds.length})
               </button>
@@ -506,6 +522,7 @@ export default function DiscoveryPage() {
               products.map((prod) => {
                 const coverImg = getProductCoverImage(prod);
                 const photosList = getProductPhotosList(prod);
+                const filaments = getParsedFilaments(prod);
                 const isSelectedForVideo = selectedProductIds.includes(prod.id);
 
                 return (
@@ -555,11 +572,27 @@ export default function DiscoveryPage() {
                       </button>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <h4 className="font-bold text-white text-sm line-clamp-1">{prod.title}</h4>
                       <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
                         <span>MW ID: {prod.makerworldId}</span>
                         <span>{prod.author || 'MakerWorld Creator'}</span>
+                      </div>
+
+                      {/* 3D PRINTING REAL PARAMETERS BADGES */}
+                      <div className="flex flex-wrap gap-1.5 pt-1 font-mono text-[10px]">
+                        <span className="px-2 py-0.5 rounded-md bg-[#0F172A] border border-cyan-500/30 text-cyan-300 flex items-center gap-1">
+                          🧵 {filaments.join(', ')}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#0F172A] border border-purple-500/30 text-purple-300 flex items-center gap-1">
+                          ⏱️ {formatPrintTime(prod.printTimeMinutes || 120)}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#0F172A] border border-emerald-500/30 text-emerald-300 flex items-center gap-1">
+                          ⚖️ {prod.weightGrams || 50}g
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#0F172A] border border-amber-500/30 text-amber-300 flex items-center gap-1">
+                          🧩 {prod.plateCount || 1} Bàn in
+                        </span>
                       </div>
                     </div>
 

@@ -39,6 +39,7 @@ export async function initDb() {
         filament_colors TEXT NOT NULL,
         print_time_minutes INTEGER,
         weight_grams REAL,
+        plate_count INTEGER DEFAULT 1,
         status TEXT NOT NULL DEFAULT 'DISCOVERED',
         raw_images TEXT NOT NULL,
         selected_cover_image TEXT,
@@ -51,6 +52,12 @@ export async function initDb() {
         updated_at TEXT NOT NULL
       );
     `);
+
+    try {
+      await client.execute(`ALTER TABLE products ADD COLUMN plate_count INTEGER DEFAULT 1;`);
+    } catch (e) {
+      // Column already exists
+    }
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS search_jobs (

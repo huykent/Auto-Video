@@ -10,6 +10,7 @@ export const products = sqliteTable('products', {
   filamentColors: text('filament_colors').notNull(), // JSON string array: ["Silk Gold"]
   printTimeMinutes: integer('print_time_minutes'),
   weightGrams: real('weight_grams'),
+  plateCount: integer('plate_count').default(1), // Number of print plates / profiles
   status: text('status').notNull().default('DISCOVERED'), // DISCOVERED, CRAWLED, APPROVED_FOR_VIDEO, GENERATING_VIDEO, VIDEO_READY, EXPORTED
   rawImages: text('raw_images').notNull(), // JSON string array
   selectedCoverImage: text('selected_cover_image'),
