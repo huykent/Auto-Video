@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     let coverImage = '';
 
     const contentType = request.headers.get('content-type') || '';
+
     if (contentType.includes('application/json')) {
       const body = await request.json();
       if (Array.isArray(body.productIds)) {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
         productIdList = [body.productId];
       }
       if (body.coverImage) coverImage = body.coverImage;
-    } else {
+    } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
       const formData = await request.formData();
       const pId = formData.get('productId') as string;
       const pIds = formData.get('productIds') as string;
@@ -31,6 +32,12 @@ export async function POST(request: Request) {
         productIdList = [pId];
       }
       coverImage = (formData.get('coverImage') as string) || '';
+    } else {
+      try {
+        const body = await request.json();
+        if (Array.isArray(body.productIds)) productIdList = body.productIds;
+        else if (body.productId) productIdList = [body.productId];
+      } catch (e) {}
     }
 
     if (productIdList.length === 0) {
