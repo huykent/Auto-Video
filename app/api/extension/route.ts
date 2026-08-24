@@ -27,7 +27,7 @@ export async function GET(request: Request) {
         const job = pendingJobs[0];
         await db
           .update(searchJobs)
-          .set({ status: 'RUNNING', updatedAt: new Date().toISOString() })
+          .set({ status: 'RUNNING' })
           .where(eq(searchJobs.id, job.id));
 
         return NextResponse.json({
@@ -95,7 +95,6 @@ export async function POST(request: Request) {
       await db.update(searchJobs).set({
         status: 'COMPLETED',
         itemsFound: hits.length,
-        updatedAt: now,
       }).where(eq(searchJobs.id, jobId));
 
       return NextResponse.json({ success: true, message: `Saved ${hits.length} items.` });
@@ -105,7 +104,6 @@ export async function POST(request: Request) {
       await db.update(searchJobs).set({
         status: 'FAILED',
         errorLog: error || 'Extension scraping failed',
-        updatedAt: new Date().toISOString(),
       }).where(eq(searchJobs.id, jobId));
 
       return NextResponse.json({ success: true });
