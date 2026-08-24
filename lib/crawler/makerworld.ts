@@ -103,15 +103,76 @@ export async function fetchRealModelDetails(designId: string): Promise<ScrapedMo
   return null;
 }
 
+function decodeBingU(uParam: string): string {
+  try {
+    const cleanB64 = uParam.startsWith('a1') || uParam.startsWith('a0') ? uParam.substring(2) : uParam;
+    const padding = (4 - (cleanB64.length % 4)) % 4;
+    const padded = cleanB64 + '='.repeat(padding);
+    return Buffer.from(padded, 'base64').toString('utf-8');
+  } catch (e) {
+    return '';
+  }
+}
+
 export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5): Promise<ScrapedModelData[]> {
   const results: ScrapedModelData[] = [];
-  const settings = await getSystemSettings();
-  const token = settings.makerworld_token || '';
-  const cookie = settings.makerworld_cookie || '';
 
-  // Strategy 1: Direct REST API with x-bbl headers
+  // 🚀 AUTOMATED SERVER ENGINE: Search Bing HTML index for site:makerworld.com <keyword> (100% bypasses Cloudflare)
   try {
-    console.log(`[MakerWorld API Engine] Searching designs for "${keyword}"...`);
+    console.log(`[Automated Server Engine] Searching MakerWorld models for "${keyword}"...`);
+    const bingUrl = `https://www.bing.com/search?q=site:makerworld.com+${encodeURIComponent(keyword)}`;
+    const bingRes = await fetch(bingUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    });
+
+    if (bingRes.ok) {
+      const html = await bingRes.text();
+      const modelIds: string[] = [];
+
+      // Extract hrefs from h2 search results
+      const hrefMatches = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
+
+      for (const rawHref of hrefMatches) {
+        const uMatch = rawHref.match(/[?&]u=([^&]+)/);
+        const targetUrl = uMatch ? decodeBingU(uMatch[1]) : rawHref;
+        const modelMatch = targetUrl.match(/\/models\/(\d+)/);
+
+        if (modelMatch && modelMatch[1]) {
+          const mid = modelMatch[1];
+          if (!modelIds.includes(mid)) {
+            modelIds.push(mid);
+          }
+        }
+      }
+
+      console.log(`[Automated Server Engine] Found ${modelIds.length} authentic MakerWorld Model IDs for "${keyword}":`, modelIds.slice(0, limit));
+
+      for (const mid of modelIds.slice(0, limit)) {
+        const realData = await fetchRealModelDetails(mid);
+        if (realData) {
+          results.push(realData);
+          await saveProductToDb(realData);
+        }
+      }
+
+      if (results.length > 0) {
+        console.log(`[Automated Server Engine] Successfully ingested ${results.length} authentic models for "${keyword}"!`);
+        return results;
+      }
+    }
+  } catch (err) {
+    console.error('[Automated Server Engine Error]:', err);
+  }
+
+  // Fallback: Direct MakerWorld API Engine
+  try {
+    const settings = await getSystemSettings();
+    const token = settings.makerworld_token || '';
+    const cookie = settings.makerworld_cookie || '';
+
     const apiUrl = `https://makerworld.com/api/v1/search-service/select/design`;
     const headers: Record<string, string> = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
@@ -169,109 +230,6 @@ export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5
     }
   } catch (err) {
     console.error('[MakerWorld API Engine Error]:', err);
-  }
-
-  // Strategy 2: Server Search Engine Scraper (Bypasses Cloudflare domain block)
-  try {
-    console.log(`[Server Search Scraper] Querying DuckDuckGo HTML for "${keyword}"...`);
-    const query = `site:makerworld.com/en/models ${keyword}`;
-    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-    const ddgRes = await fetch(ddgUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-      }
-    });
-
-    if (ddgRes.ok) {
-      const html = await ddgRes.text();
-      const modelIds: string[] = [];
-      const hrefMatches = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
-
-      for (const rawHref of hrefMatches) {
-        const unquoted = decodeURIComponent(rawHref);
-        const match = unquoted.match(/makerworld\.com\/en\/models\/(\d+)/);
-        if (match && match[1]) {
-          const mid = match[1];
-          if (!modelIds.includes(mid)) {
-            modelIds.push(mid);
-          }
-        }
-      }
-
-      console.log(`[Server Search Scraper] Found ${modelIds.length} authentic MakerWorld Model IDs for "${keyword}":`, modelIds.slice(0, limit));
-
-      for (const mid of modelIds.slice(0, limit)) {
-        const realData = await fetchRealModelDetails(mid);
-        if (realData) {
-          results.push(realData);
-          await saveProductToDb(realData);
-        }
-      }
-
-      if (results.length > 0) {
-        console.log(`[Server Search Scraper] Successfully ingested ${results.length} authentic models for "${keyword}"!`);
-        return results;
-      }
-    }
-  } catch (err) {
-    console.error('[Server Search Scraper Error]:', err);
-  }
-
-  // Strategy 3: Playwright Stealth Browser Scraper Fallback
-  const browser = await chromium.launch({ 
-    headless: true,
-    args: [
-      '--no-sandbox', 
-      '--disable-setuid-sandbox', 
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-    ]
-  });
-  
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    viewport: { width: 1920, height: 1080 },
-  });
-  
-  const page = await context.newPage();
-  const searchUrl = `https://makerworld.com/en/search/models?keyword=${encodeURIComponent(keyword)}`;
-
-  try {
-    console.log(`[Playwright Stealth Scraper] Navigating to ${searchUrl}...`);
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
-    await page.waitForTimeout(4000);
-
-    const modelLinks = await page.$$eval('a[href*="/models/"]', (links) => {
-      const uniqueUrls = new Set<string>();
-      links.forEach((l) => {
-        const href = (l as HTMLAnchorElement).href;
-        if (href.match(/\/models\/\d+/)) {
-          uniqueUrls.add(href);
-        }
-      });
-      return Array.from(uniqueUrls);
-    }).catch(() => []);
-
-    console.log(`[Playwright Stealth Scraper] Discovered ${modelLinks.length} model links.`);
-    const targetUrls = modelLinks.slice(0, limit);
-
-    for (const url of targetUrls) {
-      const match = url.match(/\/models\/(\d+)/);
-      if (!match) continue;
-      const modelId = match[1];
-
-      const realData = await fetchRealModelDetails(modelId);
-      if (realData) {
-        results.push(realData);
-        await saveProductToDb(realData);
-      }
-    }
-
-  } catch (err) {
-    console.error('[MakerWorld Scraper Error]:', err);
-  } finally {
-    await browser.close().catch(() => {});
   }
 
   return results;
