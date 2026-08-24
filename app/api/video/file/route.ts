@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { db } from '../../../lib/db';
-import { products } from '../../../lib/db/schema';
+import { db } from '../../../../lib/db';
+import { products } from '../../../../lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,6 @@ export async function GET(request: Request) {
     }
 
     if (!targetPath || !fs.existsSync(targetPath)) {
-      // If path is relative or missing, try resolve inside storage/generated_videos
       const fileName = path.basename(targetPath || `${productId}.mp4`);
       targetPath = path.resolve(process.cwd(), 'storage/generated_videos', fileName);
     }
