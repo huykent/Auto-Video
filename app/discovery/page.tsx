@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import UnifiedNavbar from '../../components/Navbar';
-import { formatPrintTime } from '../../lib/crawler/makerworld';
 import { 
   Sparkles, 
   Search, 
@@ -58,6 +57,15 @@ interface ProductItem {
   status: string;
   rawImages: string;
   selectedCoverImage?: string | null;
+}
+
+function formatPrintTime(minutes?: number | null): string {
+  if (!minutes || minutes <= 0) return '1h 30m';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins}m`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
 }
 
 export default function DiscoveryPage() {
@@ -585,7 +593,7 @@ export default function DiscoveryPage() {
                           🧵 {filaments.join(', ')}
                         </span>
                         <span className="px-2 py-0.5 rounded-md bg-[#0F172A] border border-purple-500/30 text-purple-300 flex items-center gap-1">
-                          ⏱️ {formatPrintTime(prod.printTimeMinutes || 120)}
+                          ⏱️ {formatPrintTime(prod.printTimeMinutes)}
                         </span>
                         <span className="px-2 py-0.5 rounded-md bg-[#0F172A] border border-emerald-500/30 text-emerald-300 flex items-center gap-1">
                           ⚖️ {prod.weightGrams || 50}g
