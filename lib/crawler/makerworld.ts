@@ -159,7 +159,54 @@ export async function scrapeMakerWorldKeyword(keyword: string, limit: number = 5
     }
   }
 
-  // Strategy 2: Playwright Stealth Browser Scraper
+  // Strategy 2: Server Search Engine Scraper (Bypasses Cloudflare domain block)
+  try {
+    console.log(`[Server Search Scraper] Querying DuckDuckGo HTML for "${keyword}"...`);
+    const query = `site:makerworld.com/en/models ${keyword}`;
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const ddgRes = await fetch(ddgUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    });
+
+    if (ddgRes.ok) {
+      const html = await ddgRes.text();
+      const modelIds: string[] = [];
+      const hrefMatches = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
+
+      for (const rawHref of hrefMatches) {
+        const unquoted = decodeURIComponent(rawHref);
+        const match = unquoted.match(/makerworld\.com\/en\/models\/(\d+)/);
+        if (match && match[1]) {
+          const mid = match[1];
+          if (!modelIds.includes(mid)) {
+            modelIds.push(mid);
+          }
+        }
+      }
+
+      console.log(`[Server Search Scraper] Found ${modelIds.length} authentic MakerWorld Model IDs for "${keyword}":`, modelIds.slice(0, limit));
+
+      for (const mid of modelIds.slice(0, limit)) {
+        const realData = await fetchRealModelDetails(mid);
+        if (realData) {
+          results.push(realData);
+          await saveProductToDb(realData);
+        }
+      }
+
+      if (results.length > 0) {
+        console.log(`[Server Search Scraper] Successfully ingested ${results.length} authentic models for "${keyword}"!`);
+        return results;
+      }
+    }
+  } catch (err) {
+    console.error('[Server Search Scraper Error]:', err);
+  }
+
+  // Strategy 3: Playwright Stealth Browser Scraper Fallback
   const browser = await chromium.launch({ 
     headless: true,
     args: [
