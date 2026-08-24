@@ -9,6 +9,8 @@ export interface SystemSettingsPayload {
   max_crawl_items?: string;
   makerworld_token?: string;
   makerworld_cookie?: string;
+  makerworld_email?: string;
+  makerworld_password?: string;
 }
 
 export async function getSystemSettings(): Promise<Record<string, string>> {
@@ -20,6 +22,8 @@ export async function getSystemSettings(): Promise<Record<string, string>> {
     max_crawl_items: '10',
     makerworld_token: '',
     makerworld_cookie: '',
+    makerworld_email: '',
+    makerworld_password: '',
   };
   for (const row of rows) {
     result[row.key] = row.value;

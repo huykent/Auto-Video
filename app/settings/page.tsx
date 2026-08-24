@@ -13,7 +13,11 @@ import {
   EyeOff, 
   ArrowLeft,
   Server,
-  Globe
+  Globe,
+  LogIn,
+  RefreshCw,
+  Mail,
+  Lock
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -21,15 +25,19 @@ export default function SettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [makerworldToken, setMakerworldToken] = useState('');
   const [makerworldCookie, setMakerworldCookie] = useState('');
+  const [makerworldEmail, setMakerworldEmail] = useState('');
+  const [makerworldPassword, setMakerworldPassword] = useState('');
   const [aiMode, setAiMode] = useState<'mock' | 'live'>('mock');
   const [maxCrawlItems, setMaxCrawlItems] = useState('10');
   
   const [showVeoKey, setShowVeoKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showMwToken, setShowMwToken] = useState(false);
+  const [showMwPass, setShowMwPass] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Fetch current system settings
@@ -42,6 +50,8 @@ export default function SettingsPage() {
           setGeminiApiKey(data.gemini_api_key || '');
           setMakerworldToken(data.makerworld_token || '');
           setMakerworldCookie(data.makerworld_cookie || '');
+          setMakerworldEmail(data.makerworld_email || '');
+          setMakerworldPassword(data.makerworld_password || '');
           setAiMode(data.ai_mode === 'live' ? 'live' : 'mock');
           setMaxCrawlItems(data.max_crawl_items || '10');
         }
@@ -67,6 +77,8 @@ export default function SettingsPage() {
           gemini_api_key: geminiApiKey,
           makerworld_token: makerworldToken,
           makerworld_cookie: makerworldCookie,
+          makerworld_email: makerworldEmail,
+          makerworld_password: makerworldPassword,
           ai_mode: aiMode,
           max_crawl_items: maxCrawlItems,
         }),
@@ -82,6 +94,40 @@ export default function SettingsPage() {
       setToastMessage('❌ Lỗi kết nối máy chủ.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAutoLogin = async () => {
+    if (!makerworldEmail || !makerworldPassword) {
+      setToastMessage('❌ Vui lòng nhập Email và Mật khẩu MakerWorld trước khi bấm đăng nhập.');
+      return;
+    }
+
+    setLoggingIn(true);
+    setToastMessage('⏳ Đang khởi chạy Playwright ngầm để Đăng nhập MakerWorld...');
+
+    try {
+      const res = await fetch('/api/settings/autologin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: makerworldEmail,
+          password: makerworldPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.token) setMakerworldToken(data.token);
+        if (data.cookie) setMakerworldCookie(data.cookie);
+        setToastMessage('🎉 Đăng nhập thành công! Auth Token & Cookie đã được trích xuất và lưu vào hệ thống.');
+      } else {
+        setToastMessage(`❌ Đăng nhập thất bại: ${data.error || 'Có lỗi xảy ra.'}`);
+      }
+    } catch (err: any) {
+      setToastMessage(`❌ Lỗi kết nối đăng nhập: ${err.message}`);
+    } finally {
+      setLoggingIn(false);
     }
   };
 
@@ -115,7 +161,7 @@ export default function SettingsPage() {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
         
         {toastMessage && (
-          <div className={`p-4 rounded-xl text-sm font-medium border backdrop-blur-xl ${toastMessage.includes('✅') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+          <div className={`p-4 rounded-xl text-sm font-medium border backdrop-blur-xl ${toastMessage.includes('✅') || toastMessage.includes('🎉') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : toastMessage.includes('⏳') ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
             {toastMessage}
           </div>
         )}
@@ -169,24 +215,77 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Card 2: MakerWorld Account Auth (Cloudflare Bypass) */}
+            {/* Card 2: MakerWorld Account Auth & Auto-Login Engine */}
             <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-5 shadow-[0_0_30px_rgba(6,182,212,0.1)]">
-              <div className="flex items-center gap-3 pb-4 border-b border-cyan-500/15">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <Globe className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">MakerWorld Cloudflare Authentication (Bambuddy Strategy)</h3>
-                  <p className="text-xs text-slate-400">Nhập Authorization Bearer Token hoặc Cookie để bypass 100% Cloudflare WAF</p>
+              <div className="flex items-center justify-between pb-4 border-b border-cyan-500/15">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">MakerWorld Cloudflare Authentication (Auto-Login & Cookie Engine)</h3>
+                    <p className="text-xs text-slate-400">Tự động đăng nhập ngầm để bóc tách Auth Token và Cookie bypass 100% Cloudflare</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              {/* Account Credentials */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-slate-300 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-cyan-400" /> EMAIL TÀI KHOẢN MAKERWORLD:
+                  </label>
+                  <input
+                    type="email"
+                    value={makerworldEmail}
+                    onChange={(e) => setMakerworldEmail(e.target.value)}
+                    placeholder="user@example.com"
+                    className="w-full bg-slate-950 border border-cyan-500/30 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-slate-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-purple-400" /> MẬT KHẨU MAKERWORLD:
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showMwPass ? 'text' : 'password'}
+                      value={makerworldPassword}
+                      onChange={(e) => setMakerworldPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full bg-slate-950 border border-purple-500/30 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-purple-400 pr-12"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMwPass(!showMwPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      {showMwPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Auto Login Action Button */}
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleAutoLogin}
+                  disabled={loggingIn || !makerworldEmail || !makerworldPassword}
+                  className="px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 transition-all text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-50"
+                >
+                  {loggingIn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+                  {loggingIn ? 'Đang Đăng Nhập Ngầm...' : '🚀 Tự Động Đăng Nhập & Lấy Cookie Ngầm'}
+                </button>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-cyan-500/15">
                 {/* MakerWorld Token */}
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-emerald-300 flex items-center justify-between">
-                    <span>MAKERWORLD AUTHORIZATION BEARER TOKEN:</span>
-                    <span className="text-slate-500 text-[10px]">Trích xuất từ DevTools Header `Authorization`</span>
+                    <span>EXTRACTED AUTHORIZATION BEARER TOKEN:</span>
+                    <span className="text-slate-500 text-[10px]">Tự động điền sau khi bấm đăng nhập</span>
                   </label>
                   <div className="relative">
                     <input
@@ -209,8 +308,8 @@ export default function SettingsPage() {
                 {/* MakerWorld Cookie */}
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-cyan-300 flex items-center justify-between">
-                    <span>MAKERWORLD BROWSER COOKIE (OPTIONAL):</span>
-                    <span className="text-slate-500 text-[10px]">Trích xuất Cookie từ F12 Application Tab</span>
+                    <span>EXTRACTED BROWSER COOKIE:</span>
+                    <span className="text-slate-500 text-[10px]">Tự động điền sau khi bấm đăng nhập</span>
                   </label>
                   <textarea
                     rows={2}
