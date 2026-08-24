@@ -1,13 +1,39 @@
 import { Worker } from 'bullmq';
 import { connection } from '../queue';
+import { scrapeMakerWorldKeyword } from '../crawler/makerworld';
+import { db } from '../db';
+import { searchJobs } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
 export function startWorker() {
   const crawlerWorker = new Worker(
     'crawler-queue',
     async (job) => {
       console.log(`[Crawler Worker] Processing job ${job.id}:`, job.data);
-      // Worker processing logic will be delegated to scraper service in Task 3
-      return { status: 'completed', jobId: job.id };
+      const { jobId, keyword, maxResults } = job.data;
+
+      try {
+        if (jobId) {
+          await db.update(searchJobs).set({ status: 'RUNNING' }).where(eq(searchJobs.id, jobId));
+        }
+
+        const items = await scrapeMakerWorldKeyword(keyword, maxResults || 10);
+        
+        if (jobId) {
+          await db.update(searchJobs).set({ 
+            status: 'COMPLETED', 
+            itemsFound: items.length 
+          }).where(eq(searchJobs.id, jobId));
+        }
+
+        return { status: 'completed', jobId: job.id, itemsFound: items.length };
+      } catch (err: any) {
+        console.error(`[Crawler Worker] Job ${job.id} failed:`, err);
+        if (jobId) {
+          await db.update(searchJobs).set({ status: 'FAILED' }).where(eq(searchJobs.id, jobId));
+        }
+        throw err;
+      }
     },
     { connection }
   );
