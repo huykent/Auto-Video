@@ -103,7 +103,6 @@ export async function POST(request: Request) {
     if (action === 'failJob' && jobId) {
       await db.update(searchJobs).set({
         status: 'FAILED',
-        errorLog: error || 'Extension scraping failed',
       }).where(eq(searchJobs.id, jobId));
 
       return NextResponse.json({ success: true });
