@@ -63,7 +63,44 @@ export function formatPrintTime(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-// Fetch real authentic model metadata and ALL images from Bambu Cloud REST API
+// Recursive helper to extract ALL unique image URLs from Bambu Lab API response JSON
+function extractAllImagesFromData(data: any): string[] {
+  const photos: string[] = [];
+
+  function walk(obj: any) {
+    if (!obj) return;
+    if (typeof obj === 'string') {
+      if (obj.startsWith('http') && (obj.endsWith('.jpg') || obj.endsWith('.png') || obj.endsWith('.jpeg') || obj.endsWith('.gif') || obj.endsWith('.webp')) && !photos.includes(obj)) {
+        if (obj.includes('bblmw.com') || obj.includes('bambulab') || obj.includes('makerworld')) {
+          photos.push(obj);
+        }
+      }
+      return;
+    }
+
+    if (typeof obj === 'object') {
+      if (Array.isArray(obj)) {
+        for (const item of obj) walk(item);
+      } else {
+        for (const k of Object.keys(obj)) {
+          const v = obj[k];
+          if ((k === 'coverUrl' || k === 'url' || k === 'imageUrl' || k === 'photoUrl' || k === 'pictureUrl') && typeof v === 'string' && v.startsWith('http')) {
+            if (!photos.includes(v) && (v.includes('bblmw.com') || v.includes('bambulab') || v.includes('makerworld'))) {
+              photos.push(v);
+            }
+          } else {
+            walk(v);
+          }
+        }
+      }
+    }
+  }
+
+  walk(data);
+  return photos;
+}
+
+// Fetch real authentic model metadata and ALL 4K images from Bambu Cloud REST API
 export async function fetchRealModelDetails(designId: string): Promise<ScrapedModelData | null> {
   try {
     const settings = await getSystemSettings();
@@ -84,25 +121,9 @@ export async function fetchRealModelDetails(designId: string): Promise<ScrapedMo
       const author = data.user?.name || data.user?.username || 'MakerWorld Creator';
       const coverUrl = data.coverUrl || '';
       
-      const photos: string[] = [];
-      if (coverUrl) photos.push(coverUrl);
-
-      if (Array.isArray(data.designPhotos)) {
-        for (const p of data.designPhotos) {
-          const u = typeof p === 'string' ? p : p?.url || p?.imageUrl;
-          if (typeof u === 'string' && u.startsWith('http') && !photos.includes(u)) {
-            photos.push(u);
-          }
-        }
-      }
-
-      if (Array.isArray(data.pictures)) {
-        for (const p of data.pictures) {
-          const u = typeof p === 'string' ? p : p?.url || p?.imageUrl;
-          if (typeof u === 'string' && u.startsWith('http') && !photos.includes(u)) {
-            photos.push(u);
-          }
-        }
+      const allPhotos = extractAllImagesFromData(data);
+      if (coverUrl && !allPhotos.includes(coverUrl)) {
+        allPhotos.unshift(coverUrl);
       }
 
       const url = `https://makerworld.com/en/models/${designId}`;
@@ -116,7 +137,7 @@ export async function fetchRealModelDetails(designId: string): Promise<ScrapedMo
         filamentColors: ['Gold', 'Black'],
         printTimeMinutes: 120,
         weightGrams: 50,
-        rawImages: photos.length > 0 ? photos : (coverUrl ? [coverUrl] : []),
+        rawImages: allPhotos.length > 0 ? allPhotos : (coverUrl ? [coverUrl] : []),
       };
     }
   } catch (e) {
