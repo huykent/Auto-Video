@@ -15,6 +15,13 @@ export const client = createClient({
 });
 
 export async function initDb() {
+  try {
+    await client.execute(`PRAGMA journal_mode = WAL;`);
+    await client.execute(`PRAGMA busy_timeout = 5000;`);
+  } catch (e) {
+    console.warn('Pragma config error:', e);
+  }
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
