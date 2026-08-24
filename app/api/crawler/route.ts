@@ -7,6 +7,15 @@ import { desc } from 'drizzle-orm';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function getSafeRedirectUrl(request: Request, path: string): string {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  const proto = request.headers.get('x-forwarded-proto') || 'http';
+  if (host && !host.startsWith('localhost:')) {
+    return `${proto}://${host}${path}`;
+  }
+  return new URL(path, request.url).toString();
+}
+
 export async function GET() {
   try {
     const jobs = await db.select().from(searchJobs).orderBy(desc(searchJobs.createdAt)).limit(20);
@@ -65,7 +74,7 @@ export async function POST(request: Request) {
     }
 
     if (!contentType.includes('application/json')) {
-      return NextResponse.redirect(new URL('/discovery', request.url));
+      return NextResponse.redirect(getSafeRedirectUrl(request, '/discovery'));
     }
 
     return NextResponse.json({ success: true, jobIds: createdJobs });

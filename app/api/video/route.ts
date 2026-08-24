@@ -8,6 +8,15 @@ import { getSystemSettings } from '../../../lib/settings';
 
 export const dynamic = 'force-dynamic';
 
+function getSafeRedirectUrl(request: Request, path: string): string {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  const proto = request.headers.get('x-forwarded-proto') || 'http';
+  if (host && !host.startsWith('localhost:')) {
+    return `${proto}://${host}${path}`;
+  }
+  return new URL(path, request.url).toString();
+}
+
 export async function POST(request: Request) {
   try {
     let productIdList: string[] = [];
@@ -70,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     if (!contentType.includes('application/json')) {
-      return NextResponse.redirect(new URL('/studio', request.url));
+      return NextResponse.redirect(getSafeRedirectUrl(request, '/studio'));
     }
 
     return NextResponse.json({
