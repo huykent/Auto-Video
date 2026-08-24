@@ -10,6 +10,43 @@ export interface VeoGenerationOptions {
   apiKey?: string;
 }
 
+async function ensureSampleDemoVideo(videoDir: string, targetVideoPath: string): Promise<void> {
+  const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
+  let isValidSample = false;
+
+  if (fs.existsSync(sampleDemoPath)) {
+    try {
+      const stat = fs.statSync(sampleDemoPath);
+      if (stat.size > 50000) {
+        isValidSample = true;
+      }
+    } catch (e) {}
+  }
+
+  if (!isValidSample) {
+    try {
+      const sampleUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+      console.log('[Veo Generator] Downloading fresh demo sample MP4 video...');
+      const res = await fetch(sampleUrl);
+      if (res.ok) {
+        const buf = await res.arrayBuffer();
+        if (buf.byteLength > 50000) {
+          fs.writeFileSync(sampleDemoPath, Buffer.from(buf));
+          isValidSample = true;
+        }
+      }
+    } catch (err) {
+      console.error('[Veo Generator] Failed to download sample MP4:', err);
+    }
+  }
+
+  if (fs.existsSync(sampleDemoPath)) {
+    try {
+      fs.copyFileSync(sampleDemoPath, targetVideoPath);
+    } catch (e) {}
+  }
+}
+
 export async function generateVeoVideo(
   productId: string,
   imagePath: string,
@@ -32,23 +69,7 @@ export async function generateVeoVideo(
 
   if (isMock) {
     console.log(`[Veo Video Generator] Generating demo MP4 video for product ${productId}...`);
-    const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
-
-    if (fs.existsSync(sampleDemoPath)) {
-      fs.copyFileSync(sampleDemoPath, targetVideoPath);
-    } else {
-      try {
-        const sampleUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
-        const res = await fetch(sampleUrl);
-        if (res.ok) {
-          const buf = await res.arrayBuffer();
-          fs.writeFileSync(sampleDemoPath, Buffer.from(buf));
-          fs.copyFileSync(sampleDemoPath, targetVideoPath);
-        }
-      } catch (err) {
-        console.error('Failed to download fallback sample MP4:', err);
-      }
-    }
+    await ensureSampleDemoVideo(videoDir, targetVideoPath);
 
     const now = new Date().toISOString();
     await db
@@ -73,7 +94,6 @@ export async function generateVeoVideo(
   
   // Format payload for Google AI Studio / Gemini API
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
-
 
   const payload = {
     contents: [
@@ -117,10 +137,7 @@ export async function generateVeoVideo(
         .where(eq(products.id, productId));
 
       // Fallback to sample demo video so UI video player functions cleanly
-      const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
-      if (fs.existsSync(sampleDemoPath)) {
-        fs.copyFileSync(sampleDemoPath, targetVideoPath);
-      }
+      await ensureSampleDemoVideo(videoDir, targetVideoPath);
 
       return {
         videoPath: publicVideoUrl,
@@ -130,10 +147,7 @@ export async function generateVeoVideo(
 
     const data = await response.json();
 
-    const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
-    if (fs.existsSync(sampleDemoPath)) {
-      fs.copyFileSync(sampleDemoPath, targetVideoPath);
-    }
+    await ensureSampleDemoVideo(videoDir, targetVideoPath);
 
     const now = new Date().toISOString();
     await db
@@ -162,10 +176,7 @@ export async function generateVeoVideo(
       })
       .where(eq(products.id, productId));
 
-    const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
-    if (fs.existsSync(sampleDemoPath)) {
-      fs.copyFileSync(sampleDemoPath, targetVideoPath);
-    }
+    await ensureSampleDemoVideo(videoDir, targetVideoPath);
 
     return {
       videoPath: publicVideoUrl,
