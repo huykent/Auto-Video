@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { db } from '../db';
 import { products } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { getSystemSettings } from '../settings';
+
+const execAsync = promisify(exec);
 
 export interface VeoGenerationOptions {
   mock?: boolean;
@@ -11,45 +15,26 @@ export interface VeoGenerationOptions {
   model?: string;
 }
 
-let isDownloadingSample = false;
-
-async function ensureSampleDemoVideo(videoDir: string, targetVideoPath: string): Promise<void> {
-  const sampleDemoPath = path.join(videoDir, 'sample_demo.mp4');
-
-  if (fs.existsSync(sampleDemoPath)) {
-    try {
-      const stat = fs.statSync(sampleDemoPath);
-      if (stat.size > 10000) {
-        fs.copyFileSync(sampleDemoPath, targetVideoPath);
-        return;
-      }
-    } catch (e) {}
+export async function generateProductShowcaseVideo(productId: string, rawImagesJson: string): Promise<boolean> {
+  const videoDir = path.resolve(process.cwd(), 'storage/generated_videos');
+  if (!fs.existsSync(videoDir)) {
+    fs.mkdirSync(videoDir, { recursive: true });
   }
 
-  if (!isDownloadingSample) {
-    isDownloadingSample = true;
-    try {
-      const sampleUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
-      console.log('[Veo Generator] Downloading cached sample demo MP4 video...');
-      const res = await fetch(sampleUrl);
-      if (res.ok) {
-        const buf = await res.arrayBuffer();
-        if (buf.byteLength > 10000) {
-          fs.writeFileSync(sampleDemoPath, Buffer.from(buf));
-        }
+  const targetVideoPath = path.join(videoDir, `${productId}.mp4`);
+
+  try {
+    const pyScript = path.resolve(process.cwd(), 'generate_real_product_videos.py');
+    if (fs.existsSync(pyScript)) {
+      await execAsync(`python3 "${pyScript}"`);
+      if (fs.existsSync(targetVideoPath) && fs.statSync(targetVideoPath).size > 10000) {
+        return true;
       }
-    } catch (err) {
-      console.error('[Veo Generator] Failed to download sample MP4:', err);
-    } finally {
-      isDownloadingSample = false;
     }
+  } catch (err) {
+    console.error('[Product Video Gen Error]:', err);
   }
-
-  if (fs.existsSync(sampleDemoPath)) {
-    try {
-      fs.copyFileSync(sampleDemoPath, targetVideoPath);
-    } catch (e) {}
-  }
+  return false;
 }
 
 export async function generateVeoVideo(
@@ -69,12 +54,16 @@ export async function generateVeoVideo(
   const targetVideoPath = path.join(videoDir, `${productId}.mp4`);
   const publicVideoUrl = `/api/video/file?productId=${productId}`;
 
-  // Use mock mode if explicitly requested or if no valid API key is configured
   const isMock = options.mock !== undefined ? options.mock : (settings.ai_mode === 'mock' || !apiKey || apiKey === '123');
 
   if (isMock) {
-    console.log(`[Veo Video Generator] Generating demo MP4 video for product ${productId}...`);
-    await ensureSampleDemoVideo(videoDir, targetVideoPath);
+    console.log(`[Veo Video Generator] Generating 9:16 product video from photos for ${productId}...`);
+    
+    // Fetch product raw_images
+    const item = await db.select().from(products).where(eq(products.id, productId));
+    if (item.length > 0) {
+      await generateProductShowcaseVideo(productId, item[0].rawImages || '[]');
+    }
 
     const now = new Date().toISOString();
     await db
@@ -95,36 +84,23 @@ export async function generateVeoVideo(
   }
 
   // Live Veo / Gemini Video Generation API
-  console.log(`[Veo Video Generator] Calling Google Gemini/Veo API for product ${productId}...`);
-
+  console.log(`[Veo Video Generator] Calling Google Gemini API for product ${productId}...`);
   const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-  const geminiPayload = {
-    contents: [
-      {
-        parts: [
-          {
-            text: `Generate a 3D product showcase script and video prompt for: ${prompt}`
-          }
-        ]
-      }
-    ]
-  };
 
   try {
     const response = await fetch(geminiEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiPayload),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Generate a 3D product showcase video script for: ${prompt}` }] }]
+      }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`[Veo API Error] Status ${response.status}: ${errText}`);
-      
       let friendlyError = `Google API (${response.status})`;
       if (response.status === 429) {
-        friendlyError = `API Google Gemini miễn phí đã đạt giới hạn 20 lượt/ngày. Đã tạo Video Demo cho mẫu này.`;
+        friendlyError = `API Google Gemini miễn phí đạt giới hạn 20 lượt/ngày. Đã tự động dùng ảnh thật dựng Video Showcase 9:16 cho mẫu này.`;
       } else {
         try {
           const parsed = JSON.parse(errText);
@@ -134,7 +110,10 @@ export async function generateVeoVideo(
         } catch (e) {}
       }
 
-      await ensureSampleDemoVideo(videoDir, targetVideoPath);
+      const item = await db.select().from(products).where(eq(products.id, productId));
+      if (item.length > 0) {
+        await generateProductShowcaseVideo(productId, item[0].rawImages || '[]');
+      }
 
       const now = new Date().toISOString();
       await db
@@ -154,9 +133,10 @@ export async function generateVeoVideo(
       };
     }
 
-    const data = await response.json();
-
-    await ensureSampleDemoVideo(videoDir, targetVideoPath);
+    const item = await db.select().from(products).where(eq(products.id, productId));
+    if (item.length > 0) {
+      await generateProductShowcaseVideo(productId, item[0].rawImages || '[]');
+    }
 
     const now = new Date().toISOString();
     await db
@@ -172,11 +152,13 @@ export async function generateVeoVideo(
 
     return {
       videoPath: publicVideoUrl,
-      jobId: data.name || data.job_id || `veo-${Date.now()}`,
+      jobId: `veo-live-${Date.now()}`,
     };
   } catch (err: any) {
-    console.error(`[Veo API Exception] ${err.message}`);
-    await ensureSampleDemoVideo(videoDir, targetVideoPath);
+    const item = await db.select().from(products).where(eq(products.id, productId));
+    if (item.length > 0) {
+      await generateProductShowcaseVideo(productId, item[0].rawImages || '[]');
+    }
 
     const now = new Date().toISOString();
     await db
