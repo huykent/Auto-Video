@@ -8,6 +8,7 @@ import { getSystemSettings } from '../settings';
 export interface VeoGenerationOptions {
   mock?: boolean;
   apiKey?: string;
+  model?: string;
 }
 
 async function ensureSampleDemoVideo(videoDir: string, targetVideoPath: string): Promise<void> {
@@ -89,13 +90,26 @@ export async function generateVeoVideo(
     };
   }
 
-  // Live Veo 3 / Google AI Video API Integration
-  console.log(`[Veo Video Generator] Calling Google Veo API for product ${productId}...`);
-  
-  // Format payload for Google AI Studio / Gemini API
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+  // Live Veo 3.1 / Gemini Video Generation API
+  console.log(`[Veo Video Generator] Calling Google Veo 3.1 / Gemini Video API for product ${productId}...`);
 
-  const payload = {
+  const model = options.model || 'veo-3.1-generate-preview';
+  
+  // Build endpoints for both Veo 3.1 predictLongRunning and Gemini generateContent
+  const veoEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning?key=${apiKey}`;
+  const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+
+  const veoPayload = {
+    prompt: {
+      text: `Create a professional 3D showcase video of ${prompt}`
+    },
+    config: {
+      aspectRatio: '16:9',
+      durationSeconds: 5,
+    }
+  };
+
+  const geminiPayload = {
     contents: [
       {
         parts: [
@@ -108,11 +122,22 @@ export async function generateVeoVideo(
   };
 
   try {
-    const response = await fetch(endpoint, {
+    // Try primary Veo 3.1 predictLongRunning endpoint
+    let response = await fetch(veoEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(veoPayload),
     });
+
+    // If Veo 3.1 endpoint fails, fallback to Gemini 3.6 Flash endpoint
+    if (!response.ok) {
+      console.warn(`[Veo 3.1 API] Predict endpoint returned ${response.status}. Trying Gemini 3.6 Flash fallback...`);
+      response = await fetch(geminiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiPayload),
+      });
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -126,7 +151,6 @@ export async function generateVeoVideo(
         }
       } catch (e) {}
 
-      // Update database status safely without throwing exception to caller
       await db
         .update(products)
         .set({
@@ -136,7 +160,6 @@ export async function generateVeoVideo(
         })
         .where(eq(products.id, productId));
 
-      // Fallback to sample demo video so UI video player functions cleanly
       await ensureSampleDemoVideo(videoDir, targetVideoPath);
 
       return {
@@ -163,7 +186,7 @@ export async function generateVeoVideo(
 
     return {
       videoPath: publicVideoUrl,
-      jobId: data.job_id || data.name || `veo-${Date.now()}`,
+      jobId: data.name || data.job_id || `veo-${Date.now()}`,
     };
   } catch (err: any) {
     console.error(`[Veo API Exception] ${err.message}`);
