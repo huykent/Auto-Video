@@ -21,7 +21,8 @@ import {
   Download,
   Link2,
   FileText,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Trash2
 } from 'lucide-react';
 
 interface SearchJobItem {
@@ -137,6 +138,18 @@ export default function DiscoveryPage() {
       console.error('Crawl submission failed:', err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleClearJobs = async () => {
+    if (!confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử log tìm kiếm?')) return;
+    try {
+      const res = await fetch('/api/crawler', { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to clear jobs:', err);
     }
   };
 
@@ -305,7 +318,68 @@ export default function DiscoveryPage() {
           </form>
         </div>
 
-        {/* Section 3: Crawled Product Showcase Grid */}
+        {/* Section 3: Real-time Search Jobs Table with CLEAR LOGS Button */}
+        <div className="bg-[#090D1A] border border-cyan-500/30 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-cyan-500/15">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin" /> Tiến Độ Job Cào Từ Khóa (Real-time Queue Status)
+            </h3>
+            
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono text-slate-400">{jobs.length} Jobs Total</span>
+              {jobs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearJobs}
+                  className="px-3 py-1 rounded-lg text-xs font-mono font-bold text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Xóa Sạch Log Tìm Kiếm
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="text-slate-400 border-b border-cyan-500/15">
+                  <th className="pb-3 font-semibold">JOB ID</th>
+                  <th className="pb-3 font-semibold">TỪ KHÓA</th>
+                  <th className="pb-3 font-semibold">MỤC TIÊU</th>
+                  <th className="pb-3 font-semibold">ĐÃ TÌM THẤY</th>
+                  <th className="pb-3 font-semibold">TRẠNG THÁI</th>
+                  <th className="pb-3 font-semibold">THỜI GIAN</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cyan-500/10">
+                {jobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-slate-500">
+                      Chưa có Job cào nào. Tất cả log tìm kiếm đã được xóa sạch!
+                    </td>
+                  </tr>
+                ) : (
+                  jobs.map((job) => (
+                    <tr key={job.id} className="hover:bg-slate-900/50 transition-colors">
+                      <td className="py-3 text-cyan-400">{job.id}</td>
+                      <td className="py-3 font-bold text-white">{job.keyword}</td>
+                      <td className="py-3 text-slate-300">{job.maxResults} mẫu</td>
+                      <td className="py-3 text-emerald-400 font-bold">{job.itemsFound || 0}</td>
+                      <td className="py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${job.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : job.status === 'RUNNING' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse' : job.status === 'FAILED' ? 'bg-red-500/20 text-red-300 border-red-500/40' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-slate-400">{new Date(job.createdAt).toLocaleTimeString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Section 4: Crawled Product Showcase Grid */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">

@@ -16,6 +16,15 @@ export async function GET() {
   }
 }
 
+export async function DELETE() {
+  try {
+    await db.delete(searchJobs);
+    return NextResponse.json({ success: true, message: 'Đã xóa sạch toàn bộ log lịch sử tìm kiếm!' });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     let rawKeywords = '';
